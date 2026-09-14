@@ -1,6 +1,6 @@
 # Security policy
 
-This project is pre-release and currently exposes no filesystem operations. No version is supported for production cleanup.
+This project is pre-release and exposes only an explicit, read-only folder metadata scan in the native app. No version is supported for production cleanup; quarantine and deletion are unavailable.
 
 Do not post private filenames, file contents, credentials, or exploitable details in public issues. This local repository has no configured private reporting destination yet. Before publishing, maintainers must enable GitHub private vulnerability reporting or publish a monitored security contact. Until then, a public report should only request a private contact and omit technical details.
 

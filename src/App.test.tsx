@@ -4,10 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 
 describe("application shell", () => {
-  it("keeps scanning unavailable and makes its limitation visible", () => {
+  it("keeps scanning unavailable in browser preview and makes its limitation visible", () => {
     render(<App />);
-    expect(screen.getByRole("button", { name: "Scan now" })).toBeDisabled();
-    expect(screen.getByText("Scanning is not available in this build.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Choose folder and scan" })).toBeDisabled();
+    expect(screen.getByText(/Scanning requires the native desktop app/)).toBeVisible();
     expect(screen.queryByText("Ready to scan")).not.toBeInTheDocument();
   });
 
@@ -18,7 +18,7 @@ describe("application shell", () => {
     await user.click(destination);
     expect(screen.getByRole("heading", { name: "Cleanup", level: 1 })).toHaveFocus();
     expect(destination).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Scanning is not available in this build.")).toBeVisible();
+    expect(screen.getByText("Cleanup actions are unavailable.")).toBeVisible();
   });
 
   it("persists only appearance and rejects unknown preference versions", async () => {
