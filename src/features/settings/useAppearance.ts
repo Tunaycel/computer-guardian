@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
-export type Theme = "system" | "light" | "dark";
+export type Theme = "system" | "light" | "dark" | "neon";
 const STORAGE_KEY = "computer-guardian.appearance";
 
 export function isTheme(value: unknown): value is Theme {
-  return value === "system" || value === "light" || value === "dark";
+  return value === "system" || value === "light" || value === "dark" || value === "neon";
 }
 
 function readTheme(): Theme {
