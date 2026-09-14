@@ -5,7 +5,7 @@ test("navigation, honest feature states, and modal keyboard containment", async 
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Scan now" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Choose folder and scan" })).toBeDisabled();
   const trigger = page.getByRole("button", { name: "Review safety model" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Safety model" });

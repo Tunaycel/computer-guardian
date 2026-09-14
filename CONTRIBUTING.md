@@ -4,7 +4,7 @@ Thank you for improving Computer Guardian. Keep changes small, typed, tested, an
 
 - Never add destructive filesystem operations without protected-path, symlink, and rollback tests.
 - Keep file scanning and mutations in Rust services, not frontend JavaScript.
-- Run `npm run build` and `npm run test` before opening a pull request.
+- Run `npm run build`, `npm run test`, and `cargo test --manifest-path src-tauri/Cargo.toml` before opening a pull request when the native toolchain is available.
 
 Read [the product specification](docs/product-specification.md), [the quality standard](docs/quality-standard.md), and [architecture decisions](docs/architecture.md) before changing behaviour. Follow the incremental release scope.
 

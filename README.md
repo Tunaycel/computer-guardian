@@ -12,15 +12,16 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone is the application shell:
+Version 0.1.0 is **unreleased**. The current milestone adds a read-only scanner to the application shell:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
 - System, light, dark, and black-and-neon appearance, saved locally.
 - Compact cleanup-category table with planned rules clearly identified.
+- In the native app only: choose one folder, scan file metadata, view counts and an inventory, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the inventory shows at most 500 files.
 - Visible file-access and automatic-maintenance status.
 
-Scanning, classification, quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. There are no filesystem commands exposed to the interface.
+The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, and repository/dependency directories are skipped or rejected. Classification, quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
 
 ## Safety model
 
@@ -32,11 +33,11 @@ Permanent deletion is excluded from the first release. Quarantine will remain di
 
 ## Privacy
 
-The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Only the color theme is currently persisted, in a versioned local preference. The development server and package installation use networking during development; the built interface has no external service dependency.
+The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. Only the color theme is persisted, in a versioned local preference. The development server and package installation use networking during development; the built interface has no external service dependency.
 
 ## Architecture
 
-React and TypeScript provide the interface. Tauri provides the desktop host; Rust will own filesystem operations and platform adapters. SQLite is planned for operation history and quarantine metadata, but has not been added before a working consumer exists.
+React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns read-only filesystem traversal and cancellation. SQLite is planned for operation history and quarantine metadata, but has not been added before a working consumer exists.
 
 Shared controls and semantic CSS tokens live in `src/components` and `src/styles.css`. Screens live in `src/features`; browser tests live in `tests/browser`. See [architecture decisions](docs/architecture.md) and the [quality standard](docs/quality-standard.md).
 
@@ -44,7 +45,7 @@ Shared controls and semantic CSS tokens live in `src/components` and `src/styles
 
 There is no installer or supported production release yet.
 
-The React build and browser tests have been verified on Windows with Edge. Native Windows compilation is pending Rust and the system build prerequisites. Native macOS and Linux builds have not been tested; cross-platform support is a target, not a current compatibility claim.
+The React build, Edge browser tests, Rust tests, and a native Tauri development launch have been verified on Windows. Microsoft Build Tools requested a Windows restart after installation; this session used a Visual Studio developer environment with explicit SDK library paths. A production installer has not been built or tested. Native macOS and Linux builds have not been tested; cross-platform support is a target, not a current compatibility claim.
 
 For a browser preview, install Node.js 22.12 or later, open the repository directory, and run:
 
@@ -72,20 +73,18 @@ For native development, install stable Rust and the [Tauri prerequisites](https:
 npm run tauri dev
 ```
 
-This command is the intended native development entry point; it has not yet been verified on this workstation. Packaging is a later milestone. Do not describe `npm run build` as producing a desktop executable: it produces frontend assets in `dist/`.
+This command launched the native window on the development workstation after loading the Visual Studio C++ environment. If you just installed Rust or Build Tools, restart Windows and open a new terminal so Cargo, MSVC, and the Windows SDK are discoverable. Packaging is a later milestone. Do not describe `npm run build` as producing a desktop executable: it produces frontend assets in `dist/`.
 
-Tests use isolated browser storage and never scan user folders. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
+Tests use isolated browser storage and never scan user folders. Rust scanner tests use temporary directories. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
 
 ## Roadmap
 
-1. Verify the native shell and establish Rust test execution.
-2. Add an explicit, cancellable scanner with protected-path and exclusion tests.
-3. Add screenshot, age, temporary-file, and empty-folder classification.
-4. Connect file review to scan results.
-5. Add manual quarantine and safe restore together.
-6. Add duplicate detection.
-7. Add opt-in scheduling and limited system-health providers after the first release.
-8. Package and harden supported platforms.
+1. Add screenshot, age, temporary-file, and empty-folder classification.
+2. Connect file review to scan results.
+3. Add manual quarantine and safe restore together.
+4. Add duplicate detection.
+5. Add opt-in scheduling and limited system-health providers after the first release.
+6. Package and harden supported platforms.
 
 Each phase must pass build, relevant tests, and UI inspection before the next is considered complete. The first release scope is defined in the [product specification](docs/product-specification.md).
 

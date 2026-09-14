@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The React interface renders availability states and saves an appearance preference. The Tauri host embeds frontend assets and initializes logging. No IPC command, filesystem plugin, scan service, or database is enabled. This is a development milestone, not a maintenance tool ready for user data.
+The React interface saves an appearance preference and presents read-only scan results. The Tauri host owns folder scanning and cancellation through two IPC commands. The native folder picker requires an explicit user choice; the browser preview cannot scan. No filesystem mutation or database is enabled. This remains a development milestone, not a maintenance tool ready for cleanup.
 
 ## Decisions
 
@@ -12,11 +12,12 @@ The React interface renders availability states and saves an appearance preferen
 - Share Button, IconButton, Select, Dialog, Table, EmptyState, StatusBadge, and SidebarItem now. Add Input, Checkbox, Tooltip, and ProgressBar when scanner/review screens use them; do not maintain unused components just to satisfy a catalogue.
 - Persist only a versioned, validated theme preference in local storage. A failed write applies the theme for the session and reports the failure.
 - Keep the npm lockfile and use npm ci for repeatable installation. Audit development dependencies as well as runtime dependencies.
-- Defer SQLite and service interfaces until the scanner and quarantine contracts are concrete. Removed no-op Rust traits and unused serialization dependencies from the initial scaffold.
+- Keep scan results in memory only; they are not persisted or uploaded. The first 500 file paths are shown, while counts continue up to a 100,000-entry limit. The scanner skips known dependency/repository folders and reparse points, records unreadable entries, and can be cancelled.
+- Defer SQLite and mutation service interfaces until quarantine and restore contracts are concrete.
 
 ## Planned filesystem boundary
 
-The frontend will request operations by validated identifiers, not unrestricted destination paths. Rust will own path validation, platform policy, scanning, cancellation, and mutations. Read-only scanning comes before quarantine.
+The current read-only scanner receives the folder selected by the native dialog and validates it again in Rust. System roots, known protected directories, and links/junctions are rejected. Rust owns traversal and cancellation. Future mutation commands must use validated identifiers, not unrestricted destination paths. Read-only scanning comes before quarantine.
 
 Platform providers will isolate system information, storage, startup, and security queries. An unsupported check must remain explicitly unavailable. They must not manufacture a healthy state from missing data.
 
@@ -28,4 +29,4 @@ Before file mutations are enabled, cover canonical paths, ancestor protection, e
 
 Vitest verifies navigation and preference behaviour. Playwright runs the actual interface in Edge, checks keyboard interactions and layout, and uses axe in both themes. Screenshots are generated from that running interface, not drawn mockups. CI repeats these frontend checks and keeps failure traces as artifacts.
 
-Rust compilation and native-webview tests are not yet verified locally because Rust is absent. Browser testing cannot validate Tauri IPC, native permissions, filesystem race handling, signing, or installers. The next milestone starts by enabling native build verification.
+Rust compilation, five scanner tests using temporary directories, and a native Tauri development-window launch passed on Windows. The Edge browser suite also passed. Browser testing does not validate Tauri IPC or native permissions, and the launch check did not exercise the native folder picker end to end. Filesystem race handling, signing, packaging, and installers remain unverified.

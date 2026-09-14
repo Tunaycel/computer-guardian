@@ -144,6 +144,9 @@ th, td { padding: var(--space-3); border-bottom: 1px solid var(--border); vertic
 thead th { color: var(--muted); background: var(--bg); font-size: 0.857rem; font-weight: 600; }
 tbody th { font-weight: 400; }
 .panel-note { color: var(--muted); font-size: 0.857rem; margin-top: var(--space-3); }
+.scan-summary { margin: var(--space-3) 0; font-variant-numeric: tabular-nums; }
+.scan-root { margin: var(--space-3) 0; overflow-wrap: anywhere; }
+.file-path { overflow-wrap: anywhere; }
 .status-bar { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-4); color: var(--muted); background: var(--sidebar); border-top: 1px solid var(--border); font-size: 0.857rem; }
 .dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: var(--space-6); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .dialog::backdrop { background: var(--scrim); }

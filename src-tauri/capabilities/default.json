@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allow the main window to choose a folder for read-only scanning.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open"]
+}

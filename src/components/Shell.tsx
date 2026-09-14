@@ -5,10 +5,11 @@ import { Sidebar } from "./Sidebar";
 interface ShellProps {
   activePage: PageId;
   onNavigate: (page: PageId) => void;
+  fileAccess: string;
   children: ReactNode;
 }
 
-export function Shell({ activePage, onNavigate, children }: ShellProps) {
+export function Shell({ activePage, onNavigate, fileAccess, children }: ShellProps) {
   const contentRef = useRef<HTMLElement>(null);
   const previousPage = useRef(activePage);
   useEffect(() => {
@@ -22,7 +23,7 @@ export function Shell({ activePage, onNavigate, children }: ShellProps) {
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <Sidebar activePage={activePage} onNavigate={onNavigate} />
       <main ref={contentRef} id="main-content" tabIndex={-1}>{children}</main>
-      <footer className="status-bar"><span>File access: inactive</span><span>Automatic maintenance: off</span></footer>
+      <footer className="status-bar"><span>File access: {fileAccess}</span><span>Automatic maintenance: off</span></footer>
     </div>
   );
 }
