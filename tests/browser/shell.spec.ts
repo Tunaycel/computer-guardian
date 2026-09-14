@@ -55,6 +55,28 @@ test("theme persists and explicit light overrides a dark operating system", asyn
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
+test("black and neon theme stays selected and remains accessible", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Color theme" }).selectOption("neon");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "neon");
+  expect(await page.locator("html").evaluate(element => getComputedStyle(element).colorScheme)).toBe("dark");
+  for (const label of ["Settings", "Dashboard", "Cleanup", "Storage", "Quarantine", "Protector", "Activity"]) {
+    await page.getByRole("button", { name: label, exact: true }).click();
+    const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(result.violations, `black and neon: ${label}`).toEqual([]);
+  }
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click();
+  await page.getByRole("heading", { name: "Dashboard", level: 1 }).evaluate(element => (element as HTMLElement).blur());
+  await page.screenshot({ path: "docs/screenshots/dashboard-neon.png", fullPage: true });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "neon");
+  await page.getByRole("button", { name: "Review safety model" }).click();
+  const dialogResult = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+  expect(dialogResult.violations).toEqual([]);
+});
+
 test("compact width and enlarged text retain labels without page overflow", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");

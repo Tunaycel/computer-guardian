@@ -4,7 +4,7 @@ A desktop utility being built for reviewing storage and computer health, with ex
 
 ![Computer Guardian development build, captured from the running React interface](docs/screenshots/dashboard-light.png)
 
-This screenshot shows the real first-run interface in Edge on Windows. It is not a native Tauri window. No sample files, disk measurements, or health scores are injected. [Dark appearance](docs/screenshots/dashboard-dark.png).
+This screenshot shows the real first-run interface in Edge on Windows. It is not a native Tauri window. No sample files, disk measurements, or health scores are injected. [Dark appearance](docs/screenshots/dashboard-dark.png) · [Black and neon appearance](docs/screenshots/dashboard-neon.png).
 
 ## Why this project exists
 
@@ -16,7 +16,7 @@ Version 0.1.0 is **unreleased**. The current milestone is the application shell:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
-- System, light, and dark appearance, saved locally.
+- System, light, dark, and black-and-neon appearance, saved locally.
 - Compact cleanup-category table with planned rules clearly identified.
 - Visible file-access and automatic-maintenance status.
 

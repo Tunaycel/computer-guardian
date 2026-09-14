@@ -2,6 +2,11 @@
 
 ## 0.1.0 — Unreleased
 
+### Appearance
+
+- Added an optional black-and-neon color theme with the existing desktop layout and locally saved appearance setting.
+- Checked all destinations and the safety dialog for color contrast and keyboard accessibility in the new theme.
+
 ### Quality foundation
 
 - Replaced misleading scan readiness with explicit feature availability.

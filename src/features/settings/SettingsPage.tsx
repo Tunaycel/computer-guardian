@@ -16,6 +16,7 @@ export function SettingsPage({ theme, changeTheme, saveError }: SettingsPageProp
         <Select label="Color theme" value={theme} hint="Saved on this device. System follows your operating system appearance."
           onChange={event => { if (isTheme(event.target.value)) changeTheme(event.target.value); }}>
           <option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option>
+          <option value="neon">Black &amp; neon</option>
         </Select>
         {saveError && <p role="alert" className="error-text">{saveError}</p>}
       </section>

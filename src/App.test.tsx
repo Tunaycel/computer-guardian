@@ -39,4 +39,13 @@ describe("application shell", () => {
     expect(screen.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
     expect(document.documentElement).toHaveAttribute("data-theme", "system");
   });
+
+  it("saves the optional black and neon theme", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color theme" }), "neon");
+    expect(document.documentElement).toHaveAttribute("data-theme", "neon");
+    expect(JSON.parse(localStorage.getItem("computer-guardian.appearance")!)).toEqual({ version: 1, theme: "neon" });
+  });
 });
