@@ -12,16 +12,19 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone adds a read-only scanner to the application shell:
+Version 0.1.0 is **unreleased**. The current milestone adds conservative classification and review to the read-only scanner:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
 - System, light, dark, and black-and-neon appearance, saved locally.
 - Compact cleanup-category table with planned rules clearly identified.
-- In the native app only: choose one folder, scan file metadata, view counts and an inventory, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the inventory shows at most 500 files.
+- In the native app only: choose one folder, scan file metadata, view counts and review candidates, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the result stores at most 500 candidates.
+- Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The initial age thresholds are fixed defaults: 30, 90, and 14 days respectively.
+- Filter and inspect candidates in Cleanup. The interface shows at most 100 matching rows at once; all file-operation actions remain locked.
+- Explain the future Protector scope without presenting fake measurements, an antivirus claim, or a security score.
 - Visible file-access and automatic-maintenance status.
 
-The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, and repository/dependency directories are skipped or rejected. Classification, quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
+The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, and repository/dependency directories are skipped or rejected. User-configurable rules, quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
 
 ## Safety model
 
@@ -37,7 +40,7 @@ The application has no account, telemetry, remote fonts, cloud classification, o
 
 ## Architecture
 
-React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns read-only filesystem traversal and cancellation. SQLite is planned for operation history and quarantine metadata, but has not been added before a working consumer exists.
+React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns read-only filesystem traversal, cancellation, classification, and bounded result summaries. SQLite is planned for operation history and quarantine metadata, but has not been added before a working consumer exists.
 
 Shared controls and semantic CSS tokens live in `src/components` and `src/styles.css`. Screens live in `src/features`; browser tests live in `tests/browser`. See [architecture decisions](docs/architecture.md) and the [quality standard](docs/quality-standard.md).
 
@@ -79,12 +82,11 @@ Tests use isolated browser storage and never scan user folders. Rust scanner tes
 
 ## Roadmap
 
-1. Add screenshot, age, temporary-file, and empty-folder classification.
-2. Connect file review to scan results.
-3. Add manual quarantine and safe restore together.
-4. Add duplicate detection.
-5. Add opt-in scheduling and limited system-health providers after the first release.
-6. Package and harden supported platforms.
+1. Make age thresholds and scan exclusions user-configurable.
+2. Add manual quarantine and safe restore together.
+3. Add duplicate detection.
+4. Add opt-in scheduling and limited system-health providers after the first release.
+5. Package and harden supported platforms.
 
 Each phase must pass build, relevant tests, and UI inspection before the next is considered complete. The first release scope is defined in the [product specification](docs/product-specification.md).
 

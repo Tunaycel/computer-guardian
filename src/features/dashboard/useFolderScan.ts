@@ -7,14 +7,29 @@ export interface ScanProgress {
   foldersSeen: number;
   bytesSeen: number;
   errors: number;
+  reviewItemsSeen: number;
+}
+
+export type ReviewCategory = "screenshots" | "downloads" | "temporaryFiles" | "emptyFolders";
+
+export interface ScanItem {
+  path: string;
+  bytes: number;
+  kind: "file" | "folder";
+  category: ReviewCategory;
+  classification: "review";
+  reason: string;
+  modifiedAtEpochSecs: number | null;
 }
 
 export interface ScanResult {
   root: string;
   progress: ScanProgress;
-  files: { path: string; bytes: number }[];
+  items: ScanItem[];
+  categorySummaries: { category: ReviewCategory; count: number; bytes: number }[];
   cancelled: boolean;
   truncated: boolean;
+  itemsTruncated: boolean;
 }
 
 export function useFolderScan() {

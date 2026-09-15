@@ -5,28 +5,31 @@ import { Dialog } from "../../components/Dialog";
 import { EmptyState } from "../../components/EmptyState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Table } from "../../components/Table";
+import { formatBytes } from "../cleanup/scanPresentation";
+import type { ReviewCategory } from "./useFolderScan";
 import type { useFolderScan } from "./useFolderScan";
 
 const categories = [
-  { name: "Screenshots", rule: "Older than 30 days", status: "Not classified" },
-  { name: "Downloads", rule: "Older than 90 days", status: "Not classified" },
-  { name: "Temporary files", rule: "Older than 14 days", status: "Not classified" },
-  { name: "Empty folders", rule: "Individual review", status: "Not classified" },
-];
+  { id: "screenshots", name: "Screenshots", rule: "Modified 30+ days ago" },
+  { id: "downloads", name: "Downloads", rule: "Modified 90+ days ago" },
+  { id: "temporaryFiles", name: "Temporary files", rule: "Modified 14+ days ago" },
+  { id: "emptyFolders", name: "Empty folders", rule: "Individual review" },
+] as const satisfies readonly { id: ReviewCategory; name: string; rule: string }[];
+type CategoryRow = typeof categories[number] & { status: string };
 const columns = [
-  { key: "name", label: "Category", render: (row: typeof categories[number]) => row.name },
-  { key: "rule", label: "Planned default rule", render: (row: typeof categories[number]) => row.rule },
-  { key: "status", label: "Classification", render: (row: typeof categories[number]) => <span className="muted">{row.status}</span> },
+  { key: "name", label: "Category", render: (row: CategoryRow) => row.name },
+  { key: "rule", label: "Default review rule", render: (row: CategoryRow) => row.rule },
+  { key: "status", label: "Candidates", render: (row: CategoryRow) => <span className="muted">{row.status}</span> },
 ];
 
 type FolderScan = ReturnType<typeof useFolderScan>;
 
-function formatBytes(bytes: number) {
-  return new Intl.NumberFormat(undefined, { style: "unit", unit: "byte", unitDisplay: "short" }).format(bytes);
-}
-
 export function Dashboard({ scan }: { scan: FolderScan }) {
   const [showSafety, setShowSafety] = useState(false);
+  const categoryRows: CategoryRow[] = categories.map(category => {
+    const summary = scan.result?.categorySummaries.find(item => item.category === category.id);
+    return { ...category, status: summary ? `${summary.count.toLocaleString()} · ${formatBytes(summary.bytes)}` : "Not classified" };
+  });
   return (
     <div className="page">
       <header className="page-header">
@@ -40,19 +43,15 @@ export function Dashboard({ scan }: { scan: FolderScan }) {
       </div>
       <section className="content-panel" aria-labelledby="cleanup-heading">
         <header className="content-panel__header"><h2 id="cleanup-heading">Cleanup overview</h2><span className="muted">Inventory scan: {scan.running ? "In progress" : scan.result ? scan.result.cancelled ? "Cancelled this session" : scan.result.truncated || scan.result.progress.errors > 0 ? "Partial this session" : "Completed this session" : "Never"}</span></header>
-        <Table caption="Planned cleanup categories" columns={columns} rows={categories} rowKey={row => row.name} />
+        <Table caption="Conservative review categories" columns={columns} rows={categoryRows} rowKey={row => row.id} />
         <p className="panel-note">Age identifies files for review. It does not determine whether a file is safe to remove.</p>
       </section>
       <section className="content-panel" aria-label="File handling">
         {scan.error && <p className="error-text" role="alert">{scan.error}</p>}
-        {scan.progress && <p className="scan-summary" role="status">{scan.running ? "Scanning:" : scan.result?.cancelled ? "Cancelled:" : "Scan finished:"} {scan.progress.filesSeen.toLocaleString()} files, {scan.progress.foldersSeen.toLocaleString()} folders, {formatBytes(scan.progress.bytesSeen)} counted. {scan.progress.errors > 0 && `${scan.progress.errors} unreadable entries.`}</p>}
+        {scan.progress && <p className="scan-summary" role="status">{scan.running ? "Scanning:" : scan.result?.cancelled ? "Cancelled:" : "Scan finished:"} {scan.progress.filesSeen.toLocaleString()} files, {scan.progress.foldersSeen.toLocaleString()} folders, {formatBytes(scan.progress.bytesSeen)} counted, {scan.progress.reviewItemsSeen.toLocaleString()} candidates for review. {scan.progress.errors > 0 && `${scan.progress.errors} unreadable entries.`}</p>}
         {scan.result ? <>
           <p className="scan-root">Selected folder: <code>{scan.result.root}</code></p>
-          <p className="panel-note">Only metadata was read. Links, junctions, and known repository/dependency folders were skipped. This is an inventory, not a list of safe-to-delete files. {scan.result.truncated && "The scan stopped at its 100,000-entry safety limit."} {scan.result.progress.filesSeen > scan.result.files.length && `Showing the first ${scan.result.files.length} files.`}</p>
-          {scan.result.files.length > 0 && <Table caption="Scanned file inventory" columns={[
-            { key: "path", label: "File path", render: (row: typeof scan.result.files[number]) => <span className="file-path">{row.path}</span> },
-            { key: "bytes", label: "Size", render: (row: typeof scan.result.files[number]) => formatBytes(row.bytes) },
-          ]} rows={scan.result.files} rowKey={row => row.path} />}
+          <p className="panel-note">Only metadata was read. Links, junctions, and known repository/dependency folders were skipped. Candidates are signals for review, not a list of safe-to-delete files. {scan.result.truncated && "The scan stopped at its 100,000-entry safety limit."} {scan.result.itemsTruncated && "The review list is limited to 500 items."}</p>
         </> : !scan.running && <EmptyState icon={ShieldCheck} title="No files have been examined">
           {scan.available ? "Choose a folder to start a read-only scan. No folder is accessed automatically." : "Your folders have not been accessed. Open the native app to scan a folder."}
         </EmptyState>}

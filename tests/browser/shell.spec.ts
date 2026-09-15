@@ -6,6 +6,12 @@ test("navigation, honest feature states, and modal keyboard containment", async 
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Choose folder and scan" })).toBeDisabled();
+  await page.getByRole("button", { name: "Cleanup", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Scan a folder first" })).toBeVisible();
+  await page.getByRole("button", { name: "Protector", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Protector is not an antivirus" })).toBeVisible();
+  await expect(page.getByText("Not checked")).toHaveCount(5);
+  await page.getByRole("button", { name: "Dashboard", exact: true }).click();
   const trigger = page.getByRole("button", { name: "Review safety model" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Safety model" });
@@ -67,6 +73,9 @@ test("black and neon theme stays selected and remains accessible", async ({ page
     const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(result.violations, `black and neon: ${label}`).toEqual([]);
   }
+  await page.getByRole("button", { name: "Protector", exact: true }).click();
+  await page.getByRole("heading", { name: "Protector", level: 1 }).evaluate(element => (element as HTMLElement).blur());
+  await page.screenshot({ path: "docs/screenshots/protector-neon.png", fullPage: true });
   await page.getByRole("button", { name: "Dashboard", exact: true }).click();
   await page.getByRole("heading", { name: "Dashboard", level: 1 }).evaluate(element => (element as HTMLElement).blur());
   await page.screenshot({ path: "docs/screenshots/dashboard-neon.png", fullPage: true });

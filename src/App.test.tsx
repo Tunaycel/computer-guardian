@@ -18,7 +18,16 @@ describe("application shell", () => {
     await user.click(destination);
     expect(screen.getByRole("heading", { name: "Cleanup", level: 1 })).toHaveFocus();
     expect(destination).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Cleanup actions are unavailable.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Scan a folder first" })).toBeVisible();
+  });
+
+  it("explains Protector without claiming antivirus protection", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Protector" }));
+    expect(screen.getByRole("heading", { name: "Protector is not an antivirus" })).toBeVisible();
+    expect(screen.getAllByText("Not checked")).toHaveLength(5);
+    expect(screen.queryByText(/security score/i)).toBeVisible();
   });
 
   it("persists only appearance and rejects unknown preference versions", async () => {
