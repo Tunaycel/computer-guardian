@@ -25,8 +25,10 @@ describe("native folder scan flow", () => {
   it("requests a selected folder and presents only returned metadata", async () => {
     vi.mocked(open).mockResolvedValue("C:\\synthetic");
     vi.mocked(invoke).mockResolvedValue({
-      root: "C:\\synthetic", progress: { filesSeen: 1, foldersSeen: 1, bytesSeen: 5, errors: 0 },
-      files: [{ path: "C:\\synthetic\\file.txt", bytes: 5 }], cancelled: false, truncated: false,
+      root: "C:\\synthetic", progress: { filesSeen: 1, foldersSeen: 1, bytesSeen: 5, errors: 0, reviewItemsSeen: 1 },
+      items: [{ path: "C:\\synthetic\\file.tmp", bytes: 5, kind: "file", category: "temporaryFiles", classification: "review", reason: "Old temporary-file candidate.", modifiedAtEpochSecs: 1 }],
+      categorySummaries: [{ category: "temporaryFiles", count: 1, bytes: 5 }],
+      cancelled: false, truncated: false, itemsTruncated: false,
     });
     const { result } = renderHook(useFolderScan);
     await act(async () => result.current.selectAndScan());

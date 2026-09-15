@@ -147,6 +147,13 @@ tbody th { font-weight: 400; }
 .scan-summary { margin: var(--space-3) 0; font-variant-numeric: tabular-nums; }
 .scan-root { margin: var(--space-3) 0; overflow-wrap: anywhere; }
 .file-path { overflow-wrap: anywhere; }
+.review-intro strong { font-size: 1.286rem; font-variant-numeric: tabular-nums; }
+.review-controls { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.review-controls .field { margin-top: 0; min-width: 220px; }
+.review-item { display: grid; gap: var(--space-1); min-width: 220px; }
+.review-reason { display: block; min-width: 250px; max-width: 44ch; color: var(--muted); }
+.action-lock { display: flex; align-items: flex-start; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-3); color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.action-lock svg { flex: none; color: var(--accent); margin-top: 1px; }
 .status-bar { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) var(--space-4); color: var(--muted); background: var(--sidebar); border-top: 1px solid var(--border); font-size: 0.857rem; }
 .dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow: auto; padding: var(--space-6); color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .dialog::backdrop { background: var(--scrim); }
@@ -175,6 +182,8 @@ select { width: min(100%, 280px); min-height: var(--control-height); padding: va
   .sidebar__footnote { display: none; }
   main { padding: var(--space-6) var(--space-4); }
   .page-header, .content-panel__header { flex-wrap: wrap; }
+  .review-controls { align-items: stretch; flex-direction: column; }
+  .review-controls .field, .review-controls select { width: 100%; }
   .status-bar { flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
 }
 @media (pointer: coarse) { :root { --control-height: 44px; } }
