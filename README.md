@@ -16,7 +16,7 @@ Version 0.1.0 is **unreleased**. The current milestone adds configurable conserv
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
-- System, light, dark, and black-and-neon appearance, saved locally.
+- Black-and-neon first-launch appearance, plus system, light, and dark options saved locally.
 - Compact cleanup-category table with planned rules clearly identified.
 - In the native app only: choose one folder, scan file metadata, view counts and review candidates, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the result stores at most 500 candidates.
 - Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The default age thresholds are 30, 90, and 14 days respectively and can be changed from 1 to 3650 days.

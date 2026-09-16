@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 export type Theme = "system" | "light" | "dark" | "neon";
 const STORAGE_KEY = "computer-guardian.appearance";
@@ -13,14 +13,14 @@ function readTheme(): Theme {
     if (typeof value === "object" && value !== null && "version" in value && value.version === 1
       && "theme" in value && isTheme(value.theme)) return value.theme;
   } catch { /* A blocked or invalid preference must not prevent startup. */ }
-  return "system";
+  return "neon";
 }
 
 export function useAppearance() {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [saveError, setSaveError] = useState("");
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
 
   function changeTheme(value: Theme) {
     setTheme(value);
