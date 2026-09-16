@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 #[cfg(windows)]
@@ -8,6 +8,76 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_RESULTS: usize = 500;
 const MAX_ENTRIES: u64 = 100_000;
+const MAX_AGE_DAYS: u32 = 3650;
+const MAX_EXCLUSIONS: usize = 50;
+const MAX_EXCLUSION_LENGTH: usize = 512;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRules {
+    pub screenshot_days: u32,
+    pub download_days: u32,
+    pub temporary_days: u32,
+    pub excluded_paths: Vec<String>,
+}
+
+impl Default for ScanRules {
+    fn default() -> Self {
+        Self {
+            screenshot_days: 30,
+            download_days: 90,
+            temporary_days: 14,
+            excluded_paths: Vec::new(),
+        }
+    }
+}
+
+impl ScanRules {
+    pub fn validate(&self) -> Result<(), String> {
+        if [
+            self.screenshot_days,
+            self.download_days,
+            self.temporary_days,
+        ]
+        .into_iter()
+        .any(|days| !(1..=MAX_AGE_DAYS).contains(&days))
+        {
+            return Err(format!(
+                "Every age threshold must be a whole number from 1 to {MAX_AGE_DAYS}."
+            ));
+        }
+        if self.excluded_paths.len() > MAX_EXCLUSIONS {
+            return Err(format!("Use no more than {MAX_EXCLUSIONS} exclusions."));
+        }
+        for raw_path in &self.excluded_paths {
+            let path = raw_path.trim().replace('\\', "/");
+            let segments: Vec<_> = path.split('/').collect();
+            let has_drive = path.as_bytes().get(1) == Some(&b':');
+            if path.is_empty() || path.len() > MAX_EXCLUSION_LENGTH {
+                return Err(format!(
+                    "Each exclusion must contain 1 to {MAX_EXCLUSION_LENGTH} characters."
+                ));
+            }
+            if path.starts_with('/') || has_drive {
+                return Err("Exclusions must be relative to the selected folder.".into());
+            }
+            if segments
+                .iter()
+                .any(|segment| segment.is_empty() || *segment == "." || *segment == "..")
+            {
+                return Err("Exclusions cannot contain empty, '.' or '..' path segments.".into());
+            }
+            if path.chars().any(|character| {
+                character == '*' || character == '?' || character == ':' || character.is_control()
+            }) {
+                return Err(
+                    "Exclusions cannot contain wildcards, control characters, or colons.".into(),
+                );
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,6 +136,7 @@ pub struct ScanResult {
     pub cancelled: bool,
     pub truncated: bool,
     pub items_truncated: bool,
+    pub rules_used: ScanRules,
 }
 
 #[derive(Default)]
@@ -119,7 +190,11 @@ fn age_days(modified: Option<SystemTime>, now: SystemTime) -> Option<u64> {
         .map(|age| age.as_secs() / 86_400)
 }
 
-fn classify_file(path: &Path, age: Option<u64>) -> (Category, Classification, String) {
+fn classify_file(
+    path: &Path,
+    age: Option<u64>,
+    rules: &ScanRules,
+) -> (Category, Classification, String) {
     let name = path
         .file_name()
         .unwrap_or_default()
@@ -143,11 +218,15 @@ fn classify_file(path: &Path, age: Option<u64>) -> (Category, Classification, St
     let download = component_named(path, &["downloads"]);
 
     let (category, threshold, label) = if screenshot {
-        (Category::Screenshots, 30, "Screenshot")
+        (Category::Screenshots, rules.screenshot_days, "Screenshot")
     } else if temporary {
-        (Category::TemporaryFiles, 14, "Temporary-file candidate")
+        (
+            Category::TemporaryFiles,
+            rules.temporary_days,
+            "Temporary-file candidate",
+        )
     } else if download {
-        (Category::Downloads, 90, "Download")
+        (Category::Downloads, rules.download_days, "Download")
     } else {
         return (
             Category::Other,
@@ -157,18 +236,18 @@ fn classify_file(path: &Path, age: Option<u64>) -> (Category, Classification, St
     };
 
     match age {
-        Some(days) if days >= threshold => (
+        Some(days) if days >= u64::from(threshold) => (
             category,
             Classification::Review,
             format!(
-                "{label} was last modified {days} days ago, meeting the default {threshold}-day review threshold."
+                "{label} was last modified {days} days ago, meeting the configured {threshold}-day review threshold."
             ),
         ),
         Some(days) => (
             category,
             Classification::Ignored,
             format!(
-                "{label} was last modified {days} days ago, within the default {threshold}-day review threshold."
+                "{label} was last modified {days} days ago, within the configured {threshold}-day review threshold."
             ),
         ),
         None => (
@@ -237,11 +316,27 @@ fn excluded(name: &str) -> bool {
     )
 }
 
+fn user_excluded(path: &Path, root: &Path, rules: &ScanRules) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return false;
+    };
+    let relative = relative
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
+    rules.excluded_paths.iter().any(|raw_path| {
+        let exclusion = raw_path.trim().replace('\\', "/").to_ascii_lowercase();
+        relative == exclusion || relative.starts_with(&format!("{exclusion}/"))
+    })
+}
+
 pub fn scan<F: FnMut(ScanProgress)>(
     root: &Path,
+    rules: &ScanRules,
     cancel: &AtomicBool,
     mut report: F,
 ) -> Result<ScanResult, String> {
+    rules.validate()?;
     let metadata = fs::symlink_metadata(root)
         .map_err(|_| "The selected folder cannot be read.".to_string())?;
     if !metadata.is_dir() || is_reparse_point(&metadata) {
@@ -298,10 +393,10 @@ pub fn scan<F: FnMut(ScanProgress)>(
             }
             entries_seen += 1;
             let name = entry.file_name().to_string_lossy().into_owned();
-            if excluded(&name) {
+            let path = entry.path();
+            if excluded(&name) || user_excluded(&path, &root, rules) {
                 continue;
             }
-            let path = entry.path();
             let metadata = match fs::symlink_metadata(&path) {
                 Ok(metadata) => metadata,
                 Err(_) => {
@@ -319,7 +414,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
                 progress.bytes_seen = progress.bytes_seen.saturating_add(metadata.len());
                 let modified = metadata.modified().ok();
                 let (category, classification, reason) =
-                    classify_file(&path, age_days(modified, now));
+                    classify_file(&path, age_days(modified, now), rules);
                 if classification == Classification::Review {
                     progress.review_items_seen += 1;
                     totals.add(category, metadata.len());
@@ -374,6 +469,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
         cancelled: cancel.load(Ordering::Relaxed),
         truncated,
         items_truncated,
+        rules_used: rules.clone(),
     })
 }
 
@@ -381,6 +477,10 @@ pub fn scan<F: FnMut(ScanProgress)>(
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicBool;
+
+    fn rules() -> ScanRules {
+        ScanRules::default()
+    }
 
     #[test]
     fn scans_only_selected_tree_and_skips_exclusions() {
@@ -391,7 +491,7 @@ mod tests {
         fs::create_dir(root.join(".git")).unwrap();
         fs::write(root.join(".git").join("secret"), b"hidden").unwrap();
         fs::write(temp.path().join("outside"), b"outside").unwrap();
-        let result = scan(&root, &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(&root, &rules(), &AtomicBool::new(false), |_| {}).unwrap();
         assert_eq!(result.progress.files_seen, 1);
         assert_eq!(result.progress.bytes_seen, 5);
         assert!(result.items.is_empty());
@@ -401,7 +501,7 @@ mod tests {
     #[test]
     fn cancellation_does_not_report_complete() {
         let temp = tempfile::tempdir().unwrap();
-        let result = scan(temp.path(), &AtomicBool::new(true), |_| {}).unwrap();
+        let result = scan(temp.path(), &rules(), &AtomicBool::new(true), |_| {}).unwrap();
         assert!(result.cancelled);
         assert_eq!(result.progress.files_seen, 0);
     }
@@ -411,7 +511,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let file = temp.path().join("file");
         fs::write(&file, b"data").unwrap();
-        assert!(scan(&file, &AtomicBool::new(false), |_| {}).is_err());
+        assert!(scan(&file, &rules(), &AtomicBool::new(false), |_| {}).is_err());
     }
 
     #[test]
@@ -419,7 +519,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let filesystem_root = temp.path().ancestors().last().unwrap();
         assert!(protected(filesystem_root));
-        assert!(scan(filesystem_root, &AtomicBool::new(false), |_| {}).is_err());
+        assert!(scan(filesystem_root, &rules(), &AtomicBool::new(false), |_| {}).is_err());
     }
 
     #[test]
@@ -429,7 +529,7 @@ mod tests {
             fs::write(temp.path().join(format!("{index:03}.txt")), b"x").unwrap();
         }
         let cancel = AtomicBool::new(false);
-        let result = scan(temp.path(), &cancel, |progress| {
+        let result = scan(temp.path(), &rules(), &cancel, |progress| {
             if progress.files_seen >= 99 {
                 cancel.store(true, Ordering::Relaxed);
             }
@@ -444,23 +544,27 @@ mod tests {
         let (category, state, reason) = classify_file(
             Path::new(r"C:\Users\Example\Pictures\Screenshots\Screenshot_1.png"),
             Some(31),
+            &rules(),
         );
         assert_eq!(category, Category::Screenshots);
         assert_eq!(state, Classification::Review);
         assert!(reason.contains("30-day"));
 
-        let (category, state, _) =
-            classify_file(Path::new(r"C:\Users\Example\Downloads\notes.txt"), Some(91));
+        let (category, state, _) = classify_file(
+            Path::new(r"C:\Users\Example\Downloads\notes.txt"),
+            Some(91),
+            &rules(),
+        );
         assert_eq!(category, Category::Downloads);
         assert_eq!(state, Classification::Review);
 
-        let (category, state, _) = classify_file(Path::new("session.tmp"), Some(15));
+        let (category, state, _) = classify_file(Path::new("session.tmp"), Some(15), &rules());
         assert_eq!(category, Category::TemporaryFiles);
         assert_eq!(state, Classification::Review);
 
-        let (_, state, _) = classify_file(Path::new("recent.tmp"), Some(2));
+        let (_, state, _) = classify_file(Path::new("recent.tmp"), Some(2), &rules());
         assert_eq!(state, Classification::Ignored);
-        let (category, state, _) = classify_file(Path::new("report.pdf"), Some(500));
+        let (category, state, _) = classify_file(Path::new("report.pdf"), Some(500), &rules());
         assert_eq!(category, Category::Other);
         assert_eq!(state, Classification::Ignored);
     }
@@ -469,11 +573,60 @@ mod tests {
     fn reports_empty_folders_for_individual_review() {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir(temp.path().join("empty")).unwrap();
-        let result = scan(temp.path(), &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(temp.path(), &rules(), &AtomicBool::new(false), |_| {}).unwrap();
         assert_eq!(result.progress.review_items_seen, 1);
         assert_eq!(result.items.len(), 1);
         assert_eq!(result.items[0].kind, "folder");
         assert_eq!(result.items[0].category, Category::EmptyFolders);
         assert_eq!(result.items[0].classification, Classification::Review);
+    }
+
+    #[test]
+    fn applies_custom_thresholds_and_preserves_them_in_results() {
+        let custom = ScanRules {
+            screenshot_days: 60,
+            download_days: 120,
+            temporary_days: 7,
+            excluded_paths: vec!["private".into()],
+        };
+        let (_, old_state, _) = classify_file(Path::new("session.tmp"), Some(8), &custom);
+        let (_, recent_state, _) = classify_file(Path::new("session.tmp"), Some(6), &custom);
+        assert_eq!(old_state, Classification::Review);
+        assert_eq!(recent_state, Classification::Ignored);
+
+        let temp = tempfile::tempdir().unwrap();
+        let result = scan(temp.path(), &custom, &AtomicBool::new(false), |_| {}).unwrap();
+        assert_eq!(result.rules_used, custom);
+    }
+
+    #[test]
+    fn skips_configured_relative_paths_and_descendants() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(temp.path().join("visible.txt"), b"visible").unwrap();
+        fs::create_dir(temp.path().join("private")).unwrap();
+        fs::write(temp.path().join("private").join("secret.txt"), b"secret").unwrap();
+        let custom = ScanRules {
+            excluded_paths: vec!["private".into()],
+            ..rules()
+        };
+        let result = scan(temp.path(), &custom, &AtomicBool::new(false), |_| {}).unwrap();
+        assert_eq!(result.progress.files_seen, 1);
+        assert_eq!(result.progress.bytes_seen, 7);
+    }
+
+    #[test]
+    fn rejects_unsafe_or_out_of_range_rules_before_traversal() {
+        for exclusion in [r"C:\private", "../private", "private/*"] {
+            let custom = ScanRules {
+                excluded_paths: vec![exclusion.into()],
+                ..rules()
+            };
+            assert!(custom.validate().is_err());
+        }
+        let custom = ScanRules {
+            screenshot_days: 0,
+            ..rules()
+        };
+        assert!(custom.validate().is_err());
     }
 }

@@ -21,6 +21,7 @@ const result: ScanResult = {
   cancelled: false,
   truncated: false,
   itemsTruncated: false,
+  rulesUsed: { screenshotDays: 30, downloadDays: 90, temporaryDays: 14, excludedPaths: [] },
 };
 
 describe("cleanup review", () => {

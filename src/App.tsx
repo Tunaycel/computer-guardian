@@ -9,6 +9,7 @@ import { ProtectorPage } from "./features/protector/ProtectorPage";
 import { UnavailablePage } from "./features/availability/UnavailablePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { useAppearance } from "./features/settings/useAppearance";
+import { useScanRules } from "./features/settings/useScanRules";
 
 const pageContent = {
   storage: { title: "Storage", description: "Disk capacity and usage.", icon: HardDrive,
@@ -22,7 +23,8 @@ const pageContent = {
 export function App() {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
   const appearance = useAppearance();
-  const scan = useFolderScan();
+  const scanRules = useScanRules();
+  const scan = useFolderScan(scanRules.rules);
 
   const page = activePage === "dashboard"
     ? <Dashboard scan={scan} />
@@ -31,7 +33,7 @@ export function App() {
       : activePage === "protector"
         ? <ProtectorPage />
     : activePage === "settings"
-      ? <SettingsPage {...appearance} />
+      ? <SettingsPage {...appearance} {...scanRules} />
       : <UnavailablePage {...pageContent[activePage]} />;
 
   return (

@@ -14,6 +14,7 @@ struct ScanState(Mutex<Option<Arc<AtomicBool>>>);
 #[tauri::command]
 async fn start_scan(
     root: String,
+    rules: scanner::ScanRules,
     on_progress: Channel<scanner::ScanProgress>,
     state: State<'_, ScanState>,
 ) -> Result<scanner::ScanResult, String> {
@@ -29,7 +30,7 @@ async fn start_scan(
         *running = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        scanner::scan(std::path::Path::new(&root), &cancel, |progress| {
+        scanner::scan(std::path::Path::new(&root), &rules, &cancel, |progress| {
             let _ = on_progress.send(progress);
         })
     })
