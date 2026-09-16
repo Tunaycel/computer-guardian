@@ -47,9 +47,9 @@ Shared controls and semantic CSS tokens live in `src/components` and `src/styles
 
 ## Installation and platform status
 
-There is no installer or supported production release yet.
+There is no supported production release yet. Local unsigned Windows test installers can be produced for development evaluation.
 
-The React build, Edge browser tests, Rust tests, and a native Tauri development launch have been verified on Windows. Microsoft Build Tools requested a Windows restart after installation; this session used a Visual Studio developer environment with explicit SDK library paths. A production installer has not been built or tested. Native macOS and Linux builds have not been tested; cross-platform support is a target, not a current compatibility claim.
+The React build, Edge browser tests, Rust tests, a native Tauri development launch, a standalone Windows executable, and MSI/NSIS test bundles have been verified on Windows. The installers are unsigned development artifacts, not a supported production release. Native macOS and Linux builds have not been tested; cross-platform support is a target, not a current compatibility claim.
 
 For a browser preview, install Node.js 22.12 or later, open the repository directory, and run:
 
@@ -77,7 +77,7 @@ For native development, install stable Rust and the [Tauri prerequisites](https:
 npm run tauri dev
 ```
 
-This command launched the native window on the development workstation after loading the Visual Studio C++ environment. If you just installed Rust or Build Tools, restart Windows and open a new terminal so Cargo, MSVC, and the Windows SDK are discoverable. Packaging is a later milestone. Do not describe `npm run build` as producing a desktop executable: it produces frontend assets in `dist/`.
+This command launched the native window on the development workstation after loading the Visual Studio C++ environment. If you just installed Rust or Build Tools, restart Windows and open a new terminal so Cargo, MSVC, and the Windows SDK are discoverable. `npm run tauri build` creates local desktop bundles; `npm run build` only produces frontend assets in `dist/`.
 
 Tests use isolated browser storage and never scan user folders. Rust scanner tests use temporary directories. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
 
