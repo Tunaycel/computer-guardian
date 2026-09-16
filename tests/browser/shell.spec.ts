@@ -36,6 +36,8 @@ for (const colorScheme of ["light", "dark"] as const) {
   test(`${colorScheme} theme: all screens pass accessibility checks`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await page.goto("/");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("combobox", { name: "Color theme" }).selectOption(colorScheme);
     for (const label of ["Dashboard", "Cleanup", "Storage", "Quarantine", "Protector", "Activity", "Settings"]) {
       await page.getByRole("button", { name: label, exact: true }).click();
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
@@ -84,6 +86,7 @@ test("scan rules validate, normalize, and persist", async ({ page }) => {
 test("black and neon theme stays selected and remains accessible", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "neon");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("combobox", { name: "Color theme" }).selectOption("neon");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "neon");

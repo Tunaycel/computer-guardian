@@ -30,13 +30,13 @@ describe("application shell", () => {
     expect(screen.queryByText(/security score/i)).toBeVisible();
   });
 
-  it("persists only appearance and rejects unknown preference versions", async () => {
+  it("uses black and neon for first launch and rejects unknown preference versions", async () => {
     localStorage.setItem("computer-guardian.appearance", '{"version":99,"theme":"dark"}');
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Settings" }));
     const theme = screen.getByRole("combobox", { name: "Color theme" });
-    expect(theme).toHaveValue("system");
+    expect(theme).toHaveValue("neon");
     await user.selectOptions(theme, "dark");
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     expect(JSON.parse(localStorage.getItem("computer-guardian.appearance")!)).toEqual({ version: 1, theme: "dark" });
@@ -46,7 +46,7 @@ describe("application shell", () => {
     localStorage.setItem("computer-guardian.appearance", "{broken");
     render(<App />);
     expect(screen.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
-    expect(document.documentElement).toHaveAttribute("data-theme", "system");
+    expect(document.documentElement).toHaveAttribute("data-theme", "neon");
   });
 
   it("saves the optional black and neon theme", async () => {
