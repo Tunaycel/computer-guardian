@@ -40,4 +40,14 @@ describe("cleanup review", () => {
     expect(screen.getByText("C:\\synthetic\\Downloads\\old.pdf")).toBeVisible();
     expect(screen.queryByText("C:\\synthetic\\Screenshots\\old.png")).not.toBeInTheDocument();
   });
+
+  it("shows a friendly folder name and keeps the technical path optional", async () => {
+    const user = userEvent.setup();
+    const extendedPathResult = { ...result, root: "\\\\?\\C:\\Users\\Example\\Computer-Guardian-Test" };
+    render(<CleanupPage result={extendedPathResult} running={false} onOpenDashboard={vi.fn()} />);
+    expect(screen.getByText("Computer-Guardian-Test", { selector: "strong" })).toBeVisible();
+    expect(screen.queryByText("C:\\Users\\Example\\Computer-Guardian-Test")).not.toBeVisible();
+    await user.click(screen.getByText("Show full path"));
+    expect(screen.getByText("C:\\Users\\Example\\Computer-Guardian-Test")).toBeVisible();
+  });
 });

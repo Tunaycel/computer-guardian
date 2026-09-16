@@ -22,3 +22,14 @@ export function formatModified(epochSeconds: number | null) {
   if (epochSeconds === null) return "Not applicable";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(epochSeconds * 1_000);
 }
+
+export function formatScanPath(path: string) {
+  if (path.startsWith("\\\\?\\UNC\\")) return `\\\\${path.slice(8)}`;
+  if (path.startsWith("\\\\?\\")) return path.slice(4);
+  return path;
+}
+
+export function formatScanRootName(path: string) {
+  const cleaned = formatScanPath(path).replace(/[\\/]+$/, "");
+  return cleaned.split(/[\\/]/).filter(Boolean).at(-1) ?? cleaned;
+}

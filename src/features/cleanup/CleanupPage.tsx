@@ -6,7 +6,7 @@ import { Select } from "../../components/Select";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Table } from "../../components/Table";
 import type { ScanItem, ScanResult, ReviewCategory } from "../dashboard/useFolderScan";
-import { CATEGORY_LABELS, formatBytes, formatModified } from "./scanPresentation";
+import { CATEGORY_LABELS, formatBytes, formatModified, formatScanPath, formatScanRootName } from "./scanPresentation";
 
 type Filter = "all" | ReviewCategory;
 const MAX_VISIBLE_ITEMS = 100;
@@ -48,7 +48,8 @@ export function CleanupPage({ result, running, onOpenDashboard }: { result: Scan
         <section className="content-panel review-intro" aria-labelledby="review-summary-heading">
           <header className="content-panel__header"><h2 id="review-summary-heading">Review summary</h2><span className="muted">Read-only · this session</span></header>
           <p><strong>{result.progress.reviewItemsSeen.toLocaleString()}</strong> items matched conservative review rules. Nothing here is described as unnecessary or safe to delete.</p>
-          <p className="panel-note">Selected folder: <code>{result.root}</code></p>
+          <p className="panel-note">Selected folder: <strong>{formatScanRootName(result.root)}</strong></p>
+          <details className="path-details"><summary>Show full path</summary><code>{formatScanPath(result.root)}</code></details>
           <p className="panel-note">Rules used: screenshots {result.rulesUsed.screenshotDays} days, downloads {result.rulesUsed.downloadDays} days, temporary-file candidates {result.rulesUsed.temporaryDays} days, and {result.rulesUsed.excludedPaths.length} relative exclusions.</p>
         </section>
 

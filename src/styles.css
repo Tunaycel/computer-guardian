@@ -146,6 +146,9 @@ tbody th { font-weight: 400; }
 .panel-note { color: var(--muted); font-size: 0.857rem; margin-top: var(--space-3); }
 .scan-summary { margin: var(--space-3) 0; font-variant-numeric: tabular-nums; }
 .scan-root { margin: var(--space-3) 0; overflow-wrap: anywhere; }
+.path-details { margin: var(--space-2) 0 var(--space-3); color: var(--muted); font-size: 0.857rem; }
+.path-details summary { width: fit-content; cursor: pointer; color: var(--text); }
+.path-details code { display: block; max-width: 76ch; margin-top: var(--space-2); overflow-wrap: anywhere; }
 .file-path { overflow-wrap: anywhere; }
 .review-intro strong { font-size: 1.286rem; font-variant-numeric: tabular-nums; }
 .review-controls { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }

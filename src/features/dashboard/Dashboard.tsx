@@ -5,7 +5,7 @@ import { Dialog } from "../../components/Dialog";
 import { EmptyState } from "../../components/EmptyState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Table } from "../../components/Table";
-import { formatBytes } from "../cleanup/scanPresentation";
+import { formatBytes, formatScanPath, formatScanRootName } from "../cleanup/scanPresentation";
 import type { ReviewCategory } from "./useFolderScan";
 import type { useFolderScan } from "./useFolderScan";
 
@@ -51,7 +51,8 @@ export function Dashboard({ scan }: { scan: FolderScan }) {
         {scan.error && <p className="error-text" role="alert">{scan.error}</p>}
         {scan.progress && <p className="scan-summary" role="status">{scan.running ? "Scanning:" : scan.result?.cancelled ? "Cancelled:" : "Scan finished:"} {scan.progress.filesSeen.toLocaleString()} files, {scan.progress.foldersSeen.toLocaleString()} folders, {formatBytes(scan.progress.bytesSeen)} counted, {scan.progress.reviewItemsSeen.toLocaleString()} candidates for review. {scan.progress.errors > 0 && `${scan.progress.errors} unreadable entries.`}</p>}
         {scan.result ? <>
-          <p className="scan-root">Selected folder: <code>{scan.result.root}</code></p>
+          <p className="scan-root">Selected folder: <strong>{formatScanRootName(scan.result.root)}</strong></p>
+          <details className="path-details"><summary>Show full path</summary><code>{formatScanPath(scan.result.root)}</code></details>
           <p className="panel-note">Only metadata was read. Links, junctions, known repository/dependency folders, and {scan.result.rulesUsed.excludedPaths.length.toLocaleString()} saved relative exclusions were skipped. Candidates are signals for review, not a list of safe-to-delete files. {scan.result.truncated && "The scan stopped at its 100,000-entry safety limit."} {scan.result.itemsTruncated && "The review list is limited to 500 items."}</p>
         </> : !scan.running && <EmptyState icon={ShieldCheck} title="No files have been examined">
           {scan.available ? "Choose a folder to start a read-only scan. No folder is accessed automatically." : "Your folders have not been accessed. Open the native app to scan a folder."}
