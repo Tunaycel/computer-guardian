@@ -61,6 +61,26 @@ test("theme persists and explicit light overrides a dark operating system", asyn
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
+test("scan rules validate, normalize, and persist", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const screenshotDays = page.getByRole("spinbutton", { name: "Screenshots" });
+  await screenshotDays.fill("0");
+  await page.getByRole("button", { name: "Save scan rules" }).click();
+  await expect(page.getByRole("alert")).toContainText("whole number from 1 to 3650");
+  await screenshotDays.fill("45");
+  await page.getByRole("textbox", { name: "Excluded relative paths" }).fill("Projects\\private\nDownloads/archive");
+  await page.getByRole("button", { name: "Save scan rules" }).click();
+  await expect(page.getByRole("status")).toContainText("used for the next scan");
+  await page.getByRole("combobox", { name: "Color theme" }).selectOption("neon");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("spinbutton", { name: "Screenshots" })).toHaveValue("45");
+  await expect(page.getByRole("textbox", { name: "Excluded relative paths" })).toHaveValue("Projects/private\nDownloads/archive");
+  await page.getByRole("heading", { name: "Settings", level: 1 }).evaluate(element => (element as HTMLElement).blur());
+  await page.screenshot({ path: "docs/screenshots/settings-neon-rules.png", fullPage: true });
+});
+
 test("black and neon theme stays selected and remains accessible", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");

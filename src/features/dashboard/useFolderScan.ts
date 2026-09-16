@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import type { ScanRules } from "../settings/useScanRules";
 
 export interface ScanProgress {
   filesSeen: number;
@@ -30,9 +31,10 @@ export interface ScanResult {
   cancelled: boolean;
   truncated: boolean;
   itemsTruncated: boolean;
+  rulesUsed: ScanRules;
 }
 
-export function useFolderScan() {
+export function useFolderScan(rules: ScanRules) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -50,7 +52,7 @@ export function useFolderScan() {
       setRunning(true);
       const onProgress = new Channel<ScanProgress>();
       onProgress.onmessage = setProgress;
-      const next = await invoke<ScanResult>("start_scan", { root, onProgress });
+      const next = await invoke<ScanResult>("start_scan", { root, rules, onProgress });
       setResult(next);
       setProgress(next.progress);
     } catch (cause) {
@@ -65,5 +67,5 @@ export function useFolderScan() {
     catch { setError("Cancellation could not be requested."); }
   }
 
-  return { available, running, progress, result, error, selectAndScan, cancel };
+  return { available, running, progress, result, error, rules, selectAndScan, cancel };
 }

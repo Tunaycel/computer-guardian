@@ -57,4 +57,33 @@ describe("application shell", () => {
     expect(document.documentElement).toHaveAttribute("data-theme", "neon");
     expect(JSON.parse(localStorage.getItem("computer-guardian.appearance")!)).toEqual({ version: 1, theme: "neon" });
   });
+
+  it("validates and saves conservative scan rules locally", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    const screenshotDays = screen.getByRole("spinbutton", { name: "Screenshots" });
+    await user.clear(screenshotDays);
+    await user.type(screenshotDays, "0");
+    await user.click(screen.getByRole("button", { name: "Save scan rules" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("whole number from 1 to 3650");
+    await user.clear(screenshotDays);
+    await user.type(screenshotDays, "45");
+    await user.type(screen.getByRole("textbox", { name: "Excluded relative paths" }), "Projects\\private\nDownloads/archive");
+    await user.click(screen.getByRole("button", { name: "Save scan rules" }));
+    expect(screen.getByRole("status")).toHaveTextContent("used for the next scan");
+    expect(JSON.parse(localStorage.getItem("computer-guardian.scan-rules")!)).toEqual({
+      version: 1,
+      rules: { screenshotDays: 45, downloadDays: 90, temporaryDays: 14, excludedPaths: ["Projects/private", "Downloads/archive"] },
+    });
+  });
+
+  it("rejects unsafe saved scan rules and restores defaults", async () => {
+    localStorage.setItem("computer-guardian.scan-rules", JSON.stringify({ version: 1, rules: { screenshotDays: 0, downloadDays: 1, temporaryDays: 1, excludedPaths: ["../private"] } }));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("spinbutton", { name: "Screenshots" })).toHaveValue(30);
+    expect(screen.getByRole("textbox", { name: "Excluded relative paths" })).toHaveValue("");
+  });
 });

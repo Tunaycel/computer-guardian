@@ -12,19 +12,20 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone adds conservative classification and review to the read-only scanner:
+Version 0.1.0 is **unreleased**. The current milestone adds configurable conservative classification and exclusions to the read-only scanner:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
 - System, light, dark, and black-and-neon appearance, saved locally.
 - Compact cleanup-category table with planned rules clearly identified.
 - In the native app only: choose one folder, scan file metadata, view counts and review candidates, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the result stores at most 500 candidates.
-- Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The initial age thresholds are fixed defaults: 30, 90, and 14 days respectively.
+- Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The default age thresholds are 30, 90, and 14 days respectively and can be changed from 1 to 3650 days.
+- Save up to 50 relative-path exclusions locally. Absolute paths, traversal segments, wildcards, and malformed settings are rejected in both TypeScript and Rust. Every result retains the rules used when that scan started.
 - Filter and inspect candidates in Cleanup. The interface shows at most 100 matching rows at once; all file-operation actions remain locked.
 - Explain the future Protector scope without presenting fake measurements, an antivirus claim, or a security score.
 - Visible file-access and automatic-maintenance status.
 
-The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, and repository/dependency directories are skipped or rejected. User-configurable rules, quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
+The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, repository/dependency directories, and configured relative exclusions are skipped or rejected. Quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
 
 ## Safety model
 
@@ -36,7 +37,7 @@ Permanent deletion is excluded from the first release. Quarantine will remain di
 
 ## Privacy
 
-The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. Only the color theme is persisted, in a versioned local preference. The development server and package installation use networking during development; the built interface has no external service dependency.
+The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. The color theme, scan thresholds, and relative exclusions are persisted in versioned local preferences. The development server and package installation use networking during development; the built interface has no external service dependency.
 
 ## Architecture
 
@@ -82,11 +83,10 @@ Tests use isolated browser storage and never scan user folders. Rust scanner tes
 
 ## Roadmap
 
-1. Make age thresholds and scan exclusions user-configurable.
-2. Add manual quarantine and safe restore together.
-3. Add duplicate detection.
-4. Add opt-in scheduling and limited system-health providers after the first release.
-5. Package and harden supported platforms.
+1. Add manual quarantine and safe restore together.
+2. Add duplicate detection.
+3. Add opt-in scheduling and limited system-health providers after the first release.
+4. Package and harden supported platforms.
 
 Each phase must pass build, relevant tests, and UI inspection before the next is considered complete. The first release scope is defined in the [product specification](docs/product-specification.md).
 

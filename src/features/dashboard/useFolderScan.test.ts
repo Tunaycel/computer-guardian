@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useFolderScan } from "./useFolderScan";
+import { DEFAULT_SCAN_RULES } from "../settings/useScanRules";
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => true,
@@ -16,7 +17,7 @@ describe("native folder scan flow", () => {
 
   it("does not invoke Rust if the folder picker is cancelled", async () => {
     vi.mocked(open).mockResolvedValue(null);
-    const { result } = renderHook(useFolderScan);
+    const { result } = renderHook(() => useFolderScan(DEFAULT_SCAN_RULES));
     await act(async () => result.current.selectAndScan());
     expect(invoke).not.toHaveBeenCalled();
     expect(result.current.result).toBeNull();
@@ -29,11 +30,12 @@ describe("native folder scan flow", () => {
       items: [{ path: "C:\\synthetic\\file.tmp", bytes: 5, kind: "file", category: "temporaryFiles", classification: "review", reason: "Old temporary-file candidate.", modifiedAtEpochSecs: 1 }],
       categorySummaries: [{ category: "temporaryFiles", count: 1, bytes: 5 }],
       cancelled: false, truncated: false, itemsTruncated: false,
+      rulesUsed: DEFAULT_SCAN_RULES,
     });
-    const { result } = renderHook(useFolderScan);
+    const { result } = renderHook(() => useFolderScan(DEFAULT_SCAN_RULES));
     await act(async () => result.current.selectAndScan());
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ directory: true, multiple: false }));
-    expect(invoke).toHaveBeenCalledWith("start_scan", expect.objectContaining({ root: "C:\\synthetic" }));
+    expect(invoke).toHaveBeenCalledWith("start_scan", expect.objectContaining({ root: "C:\\synthetic", rules: DEFAULT_SCAN_RULES }));
     await waitFor(() => expect(result.current.result?.progress.filesSeen).toBe(1));
     expect(result.current.running).toBe(false);
   });

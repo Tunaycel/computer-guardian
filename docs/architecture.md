@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The React interface saves an appearance preference and presents read-only scan summaries and review candidates. The Tauri host owns folder scanning, conservative classification, and cancellation through two IPC commands. The native folder picker requires an explicit user choice; the browser preview cannot scan. No filesystem mutation or database is enabled. This remains a development milestone, not a maintenance tool ready for cleanup.
+The React interface saves appearance and scan-rule preferences and presents read-only scan summaries and review candidates. The Tauri host owns folder scanning, rule validation, conservative classification, exclusions, and cancellation through two IPC commands. The native folder picker requires an explicit user choice; the browser preview cannot scan. No filesystem mutation or database is enabled. This remains a development milestone, not a maintenance tool ready for cleanup.
 
 ## Decisions
 
@@ -10,10 +10,10 @@ The React interface saves an appearance preference and presents read-only scan s
 - Prefer the native dialog element for inert background content and Escape handling; add explicit Tab wrapping and trigger-focus restoration for predictable desktop keyboard navigation.
 - Use CSS custom properties for spacing, type, controls, and semantic colors. Theme overrides change tokens instead of reimplementing screen styles.
 - Share Button, IconButton, Select, Dialog, Table, EmptyState, StatusBadge, and SidebarItem now. Add Input, Checkbox, Tooltip, and ProgressBar when scanner/review screens use them; do not maintain unused components just to satisfy a catalogue.
-- Persist only a versioned, validated theme preference in local storage. A failed write applies the theme for the session and reports the failure.
+- Persist versioned, validated theme and scan-rule preferences in local storage. A failed write applies the preference for the session and reports the failure. Rust validates scan rules independently before traversal.
 - Keep the npm lockfile and use npm ci for repeatable installation. Audit development dependencies as well as runtime dependencies.
 - Keep scan results in memory only; they are not persisted or uploaded. Rust assigns every file a conservative category/state, returns at most 500 review candidates, and continues category totals up to a 100,000-entry traversal limit. The review UI renders at most 100 matching rows. The scanner skips known dependency/repository folders and reparse points, records unreadable entries, and can be cancelled.
-- Treat age and location as review signals, never proof that a file is unnecessary. Current defaults flag screenshots after 30 days, Downloads after 90 days, temporary candidates after 14 days, and empty folders for individual review. Files inside the thresholds or without a conservative match are ignored by the review list.
+- Treat age and location as review signals, never proof that a file is unnecessary. Defaults flag screenshots after 30 days, Downloads after 90 days, temporary candidates after 14 days, and empty folders for individual review. Users can set age thresholds from 1 to 3650 days and up to 50 relative-path exclusions. Absolute paths, traversal segments, wildcards, and malformed preferences are rejected. Each result snapshots its applied rules so later setting changes cannot rewrite the explanation of an existing result.
 - Defer SQLite and mutation service interfaces until quarantine and restore contracts are concrete.
 
 ## Planned filesystem boundary
@@ -30,4 +30,4 @@ Before file mutations are enabled, cover canonical paths, ancestor protection, e
 
 Vitest verifies navigation and preference behaviour. Playwright runs the actual interface in Edge, checks keyboard interactions and layout, and uses axe in both themes. Screenshots are generated from that running interface, not drawn mockups. CI repeats these frontend checks and keeps failure traces as artifacts.
 
-Rust compilation, seven scanner/classification tests using temporary directories, and a native Tauri development-window launch passed on Windows. The Edge browser suite also passed. Browser testing does not validate Tauri IPC or native permissions, and the launch check did not exercise the native folder picker end to end. Filesystem race handling, signing, packaging, and installers remain unverified.
+Rust compilation and scanner/classification tests using temporary directories, plus a native Tauri development-window launch, have passed on Windows. The Edge browser suite also passed. Browser testing does not validate Tauri IPC or native permissions, and the launch check did not exercise the native folder picker end to end. Filesystem race handling, signing, packaging, and installers remain unverified.

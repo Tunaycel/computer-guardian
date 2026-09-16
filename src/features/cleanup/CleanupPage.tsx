@@ -49,10 +49,11 @@ export function CleanupPage({ result, running, onOpenDashboard }: { result: Scan
           <header className="content-panel__header"><h2 id="review-summary-heading">Review summary</h2><span className="muted">Read-only · this session</span></header>
           <p><strong>{result.progress.reviewItemsSeen.toLocaleString()}</strong> items matched conservative review rules. Nothing here is described as unnecessary or safe to delete.</p>
           <p className="panel-note">Selected folder: <code>{result.root}</code></p>
+          <p className="panel-note">Rules used: screenshots {result.rulesUsed.screenshotDays} days, downloads {result.rulesUsed.downloadDays} days, temporary-file candidates {result.rulesUsed.temporaryDays} days, and {result.rulesUsed.excludedPaths.length} relative exclusions.</p>
         </section>
 
         <section className="content-panel" aria-labelledby="review-items-heading">
-          <header className="content-panel__header"><div><h2 id="review-items-heading">Items requiring judgment</h2><p className="panel-note">Sorted by size. Classification uses fixed default age thresholds in this milestone.</p></div></header>
+          <header className="content-panel__header"><div><h2 id="review-items-heading">Items requiring judgment</h2><p className="panel-note">Sorted by size. Results retain the exact rules used when their scan started.</p></div></header>
           <div className="review-controls">
             <Select label="Filter category" value={filter} onChange={event => setFilter(event.target.value as Filter)}>
               <option value="all">All categories</option>
