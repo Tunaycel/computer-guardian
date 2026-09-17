@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The React interface saves appearance and scan-rule preferences and presents read-only scan summaries and review candidates. The Tauri host owns folder scanning, rule validation, conservative classification, exclusions, and cancellation through two IPC commands. The native folder picker requires an explicit user choice; the browser preview cannot scan. No filesystem mutation or database is enabled. This remains a development milestone, not a maintenance tool ready for cleanup.
+The React interface saves appearance and scan-rule preferences and presents scan summaries, review candidates, and local quarantine recovery records. The Tauri host owns folder scanning, rule validation, conservative classification, exclusions, cancellation, current-candidate authorization, quarantine, and restore. The native folder picker requires an explicit user choice; the browser preview cannot scan or perform file operations. Permanent deletion and automated cleanup remain unavailable. This is still a development milestone, not a production maintenance tool.
 
 ## Decisions
 
@@ -14,20 +14,23 @@ The React interface saves appearance and scan-rule preferences and presents read
 - Keep the npm lockfile and use npm ci for repeatable installation. Audit development dependencies as well as runtime dependencies.
 - Keep scan results in memory only; they are not persisted or uploaded. Rust assigns every file a conservative category/state, returns at most 500 review candidates, and continues category totals up to a 100,000-entry traversal limit. The review UI renders at most 100 matching rows. The scanner skips known dependency/repository folders and reparse points, records unreadable entries, and can be cancelled.
 - Treat age and location as review signals, never proof that a file is unnecessary. Defaults flag screenshots after 30 days, Downloads after 90 days, temporary candidates after 14 days, and empty folders for individual review. Users can set age thresholds from 1 to 3650 days and up to 50 relative-path exclusions. Absolute paths, traversal segments, wildcards, and malformed preferences are rejected. Each result snapshots its applied rules so later setting changes cannot rewrite the explanation of an existing result.
-- Defer SQLite and mutation service interfaces until quarantine and restore contracts are concrete.
+- Keep the latest completed scan's opaque candidate identifiers in Rust memory. Mutation IPC accepts an identifier, never an unrestricted source or destination path. Starting another scan invalidates the previous candidate set.
+- Journal quarantine intent in the app's private local data directory before moving a payload. Restore reloads this record, rejects reparse points and changed metadata, validates the original parent against the recorded scan root, and never overwrites an existing item.
+- Serialize scanning against quarantine/restore operations. Cross-drive moves and permanent deletion are deliberately unavailable.
+- Defer SQLite until durable activity history is implemented; the current recovery journal is one JSON intent plus state markers per quarantined payload.
 
-## Planned filesystem boundary
+## Filesystem boundary
 
-The current read-only scanner receives the folder selected by the native dialog and validates it again in Rust. System roots, known protected directories, and links/junctions are rejected. Rust owns traversal and cancellation. Future mutation commands must use validated identifiers, not unrestricted destination paths. Read-only scanning comes before quarantine.
+The scanner receives the folder selected by the native dialog and validates it again in Rust. System roots, known protected directories, and links/junctions are rejected. Rust owns traversal and cancellation. Quarantine commands only accept opaque identifiers belonging to candidates from the latest completed scan. Before moving an item, Rust re-canonicalizes its path, verifies that it remains inside the scan root, rejects reparse points and protected paths, compares type, size, and modification time, and rechecks that a folder is empty.
 
 Platform providers will isolate system information, storage, startup, and security queries. An unsupported check must remain explicitly unavailable. They must not manufacture a healthy state from missing data.
 
-Quarantine will require a journaled state machine: record intent, validate the source, move safely, verify the outcome, and commit metadata. Cross-volume moves and crashes between a filesystem action and a database transaction require explicit recovery. A path check followed by a rename is not sufficient protection against replacement races.
+Quarantine writes and flushes intent before a same-volume rename, verifies the source disappeared and payload appeared, then writes a marker. Listing reconciles an interrupted marker write from payload/source presence. Restore refuses collisions and verifies the reverse move. Permanent deletion does not exist. Cross-volume moves, low-level handle-based protection against path replacement races, signed installer distribution, and richer interrupted-operation repair remain hardening work.
 
-Before file mutations are enabled, cover canonical paths, ancestor protection, exclusions, symlinks/junctions, mount boundaries, stale scan results, filename collisions, permissions, locked files, failed moves, interrupted operations, and safe restore. Use temporary test roots exclusively.
+Native tests cover temporary file and empty-folder move/restore, stale candidates, and restore collisions. Protected ancestors, reparse points, bounded candidate authorization, failed moves, and interrupted marker recovery are enforced in code. More adversarial race, permission, locked-file, removable-drive, and crash-injection tests are still required before production use. Use temporary test roots exclusively.
 
 ## Verification boundary
 
 Vitest verifies navigation and preference behaviour. Playwright runs the actual interface in Edge, checks keyboard interactions and layout, and uses axe in both themes. Screenshots are generated from that running interface, not drawn mockups. CI repeats these frontend checks and keeps failure traces as artifacts.
 
-Rust compilation and scanner/classification tests using temporary directories, plus native Tauri development and release launches, have passed on Windows. MSI and NSIS development bundles were produced, and the Edge browser suite passed. Browser testing does not validate Tauri IPC or native permissions, and no test has exercised the native folder picker end to end. Filesystem race handling, signing, installer installation/upgrade behavior, and production distribution remain unverified.
+Rust compilation and scanner/classification/quarantine tests using temporary directories, plus native Tauri development and release launches, have passed on Windows. MSI and NSIS development bundles were produced, and the Edge browser suite passed. Browser testing does not validate Tauri IPC or native permissions. Full native UI automation, path-replacement race handling, signing, installer installation/upgrade behavior, and production distribution remain unverified.

@@ -14,6 +14,7 @@ export interface ScanProgress {
 export type ReviewCategory = "screenshots" | "downloads" | "temporaryFiles" | "emptyFolders";
 
 export interface ScanItem {
+  candidateId: string;
   path: string;
   bytes: number;
   kind: "file" | "folder";

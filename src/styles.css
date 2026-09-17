@@ -131,6 +131,7 @@ main { min-width: 0; padding: var(--space-8); }
 .button--primary { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .button--primary:hover:enabled { color: var(--on-accent); background: var(--accent-hover); }
 .button--danger { color: var(--danger); }
+.button--danger:hover:enabled { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); border-color: var(--danger); }
 .icon-button { padding: var(--space-2); width: var(--control-height); flex: none; }
 .status-badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); background: var(--bg); font-size: 0.857rem; white-space: nowrap; }
 .status-badge--healthy { color: var(--success); background: var(--success-bg); }
@@ -162,6 +163,13 @@ tbody th { font-weight: 400; }
 .dialog::backdrop { background: var(--scrim); }
 .dialog__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .dialog__footer { display: flex; justify-content: flex-end; margin-top: var(--space-6); }
+.dialog__footer--split { justify-content: space-between; gap: var(--space-3); }
+.confirmation-item { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.confirmation-item svg { flex: none; color: var(--warning); }
+.quarantine-list { display: grid; gap: var(--space-3); }
+.quarantine-entry { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); padding: var(--space-4); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.quarantine-entry__content { min-width: 0; }
+.quarantine-entry h3 { margin: 0 0 var(--space-1); font-size: 1rem; overflow-wrap: anywhere; }
 .safety-steps { padding-left: var(--space-6); margin: var(--space-4) 0; }
 .safety-steps li { padding: var(--space-2) 0 var(--space-2) var(--space-1); }
 .safety-steps strong { display: block; font-weight: 600; }
@@ -197,6 +205,7 @@ textarea { width: min(100%, 640px); resize: vertical; line-height: 1.5; }
   .review-controls { align-items: stretch; flex-direction: column; }
   .review-controls .field, .review-controls select { width: 100%; }
   .settings-grid { grid-template-columns: 1fr; }
+  .quarantine-entry { flex-direction: column; }
   .status-bar { flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
 }
 @media (pointer: coarse) { :root { --control-height: 44px; } }
