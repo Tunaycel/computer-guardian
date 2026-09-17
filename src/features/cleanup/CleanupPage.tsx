@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { FileSearch, ShieldCheck } from "lucide-react";
+import { Archive, FileSearch, ShieldCheck } from "lucide-react";
 import { Button } from "../../components/Button";
+import { Dialog } from "../../components/Dialog";
 import { EmptyState } from "../../components/EmptyState";
 import { Select } from "../../components/Select";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -11,33 +12,58 @@ import { CATEGORY_LABELS, formatBytes, formatModified, formatScanPath, formatSca
 type Filter = "all" | ReviewCategory;
 const MAX_VISIBLE_ITEMS = 100;
 
-const columns = [
-  { key: "path", label: "Item", render: (row: ScanItem) => <div className="review-item"><span className="file-path">{row.path}</span><span className="muted">{row.kind === "folder" ? "Folder" : "File"}</span></div> },
-  { key: "category", label: "Category", render: (row: ScanItem) => CATEGORY_LABELS[row.category] },
-  { key: "reason", label: "Why it needs review", render: (row: ScanItem) => <span className="review-reason">{row.reason}</span> },
-  { key: "size", label: "Size", render: (row: ScanItem) => row.kind === "folder" ? "—" : formatBytes(row.bytes) },
-  { key: "modified", label: "Modified", render: (row: ScanItem) => formatModified(row.modifiedAtEpochSecs) },
-];
-
-function resultLabel(result: ScanResult) {
+function resultLabel(result: ScanResult, remaining: number) {
   if (result.cancelled) return "Cancelled scan";
   if (result.truncated || result.progress.errors > 0) return "Partial scan";
-  return `${result.progress.reviewItemsSeen.toLocaleString()} to review`;
+  return `${remaining.toLocaleString()} to review`;
 }
 
-export function CleanupPage({ result, running, onOpenDashboard }: { result: ScanResult | null; running: boolean; onOpenDashboard: () => void }) {
+interface CleanupPageProps {
+  result: ScanResult | null;
+  running: boolean;
+  quarantineAvailable: boolean;
+  busyId: string | null;
+  error: string | null;
+  notice: string | null;
+  quarantinedCandidateIds: Set<string>;
+  onOpenDashboard: () => void;
+  onQuarantine: (candidateId: string) => Promise<boolean>;
+}
+
+export function CleanupPage({ result, running, quarantineAvailable, busyId, error, notice, quarantinedCandidateIds, onOpenDashboard, onQuarantine }: CleanupPageProps) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [selected, setSelected] = useState<ScanItem | null>(null);
+  const availableItems = useMemo(
+    () => result?.items.filter(item => !quarantinedCandidateIds.has(item.candidateId)) ?? [],
+    [quarantinedCandidateIds, result],
+  );
   const filtered = useMemo(() => {
-    const matching = filter === "all" ? result?.items ?? [] : result?.items.filter(item => item.category === filter) ?? [];
+    const matching = filter === "all" ? availableItems : availableItems.filter(item => item.category === filter);
     return matching.slice().sort((a, b) => b.bytes - a.bytes).slice(0, MAX_VISIBLE_ITEMS);
-  }, [filter, result]);
+  }, [availableItems, filter]);
+  const columns = useMemo(() => [
+    { key: "path", label: "Item", render: (row: ScanItem) => <div className="review-item"><span className="file-path">{row.path}</span><span className="muted">{row.kind === "folder" ? "Folder" : "File"}</span></div> },
+    { key: "category", label: "Category", render: (row: ScanItem) => CATEGORY_LABELS[row.category] },
+    { key: "reason", label: "Why it needs review", render: (row: ScanItem) => <span className="review-reason">{row.reason}</span> },
+    { key: "size", label: "Size", render: (row: ScanItem) => row.kind === "folder" ? "—" : formatBytes(row.bytes) },
+    { key: "modified", label: "Modified", render: (row: ScanItem) => formatModified(row.modifiedAtEpochSecs) },
+    { key: "action", label: "Action", render: (row: ScanItem) => <Button onClick={() => setSelected(row)} disabled={!quarantineAvailable || busyId !== null}>Quarantine</Button> },
+  ], [busyId, quarantineAvailable]);
+
+  async function confirmQuarantine() {
+    if (!selected) return;
+    if (await onQuarantine(selected.candidateId)) setSelected(null);
+  }
 
   return (
     <div className="page page--wide">
       <header className="page-header">
         <div><h1 tabIndex={-1}>Cleanup</h1><p className="page-description">Understand why an item was identified before any future action.</p></div>
-        <StatusBadge label={running ? "Scan in progress" : result ? resultLabel(result) : "No scan data"} tone={result && result.progress.reviewItemsSeen > 0 ? "attention" : "neutral"} />
+        <StatusBadge label={running ? "Scan in progress" : result ? resultLabel(result, availableItems.length) : "No scan data"} tone={availableItems.length > 0 ? "attention" : "neutral"} />
       </header>
+
+      {error ? <p className="error-text" role="alert">{error}</p> : null}
+      {notice ? <p className="success-text" role="status">{notice}</p> : null}
 
       {!result ? <section className="content-panel">
         <EmptyState icon={FileSearch} title={running ? "Scanning the selected folder" : "Scan a folder first"}>
@@ -60,13 +86,23 @@ export function CleanupPage({ result, running, onOpenDashboard }: { result: Scan
               <option value="all">All categories</option>
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
             </Select>
-            <span className="muted">Showing {filtered.length.toLocaleString()} of {result.items.length.toLocaleString()} stored review items.</span>
+            <span className="muted">Showing {filtered.length.toLocaleString()} of {availableItems.length.toLocaleString()} remaining review items.</span>
           </div>
           {filtered.length > 0 ? <Table caption="Review candidates" columns={columns} rows={filtered} rowKey={row => `${row.kind}:${row.path}`} /> : <EmptyState icon={ShieldCheck} title="No matching review candidates">No stored item matches this category. Files within their age threshold are intentionally excluded from this review list.</EmptyState>}
           {(result.itemsTruncated || result.items.length > MAX_VISIBLE_ITEMS) && <p className="panel-note">The interface shows at most 100 matching rows at once, and the native scanner stores at most 500 candidates per scan.</p>}
-          <div className="action-lock" role="note"><ShieldCheck size={18} aria-hidden="true" /><span><strong>Actions are locked.</strong> Quarantine, restore, and deletion are not part of this phase.</span></div>
+          <div className="action-lock" role="note"><ShieldCheck size={18} aria-hidden="true" /><span><strong>Permanent deletion is locked.</strong> Quarantine moves one confirmed item into private app storage; Restore is available from the Quarantine screen.</span></div>
         </section>
       </>}
+
+      {selected ? <Dialog title="Move this item to Quarantine?" onClose={() => setSelected(null)}>
+        <div className="confirmation-item"><Archive size={20} aria-hidden="true" /><div><strong>{selected.path.split(/[\\/]/).pop()}</strong><p className="panel-note">{CATEGORY_LABELS[selected.category]} · {selected.kind === "folder" ? "empty folder" : formatBytes(selected.bytes)}</p></div></div>
+        <p>This moves the item out of its original location. It is not permanently deleted and can be restored from Quarantine.</p>
+        <p className="panel-note">The app will stop if the item changed after this scan.</p>
+        <div className="dialog__footer dialog__footer--split">
+          <Button onClick={() => setSelected(null)} disabled={busyId !== null}>Cancel</Button>
+          <Button variant="danger" onClick={() => void confirmQuarantine()} disabled={busyId !== null}>{busyId === selected.candidateId ? "Moving…" : "Move to Quarantine"}</Button>
+        </div>
+      </Dialog> : null}
     </div>
   );
 }

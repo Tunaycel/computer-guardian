@@ -106,9 +106,10 @@ pub enum Classification {
     Ignored,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanItem {
+    pub candidate_id: String,
     pub path: String,
     pub bytes: u64,
     pub kind: &'static str,
@@ -116,6 +117,8 @@ pub struct ScanItem {
     pub classification: Classification,
     pub reason: String,
     pub modified_at_epoch_secs: Option<u64>,
+    #[serde(skip_serializing)]
+    pub modified_at_epoch_nanos: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -271,7 +274,7 @@ fn is_reparse_point(metadata: &fs::Metadata) -> bool {
     false
 }
 
-fn protected(root: &Path) -> bool {
+pub(crate) fn protected(root: &Path) -> bool {
     if root.parent().is_none() {
         return true;
     }
@@ -333,6 +336,7 @@ fn user_excluded(path: &Path, root: &Path, rules: &ScanRules) -> bool {
 pub fn scan<F: FnMut(ScanProgress)>(
     root: &Path,
     rules: &ScanRules,
+    scan_id: &str,
     cancel: &AtomicBool,
     mut report: F,
 ) -> Result<ScanResult, String> {
@@ -420,6 +424,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
                     totals.add(category, metadata.len());
                     if items.len() < MAX_RESULTS {
                         items.push(ScanItem {
+                            candidate_id: format!("{scan_id}-{}", items.len()),
                             path: path.to_string_lossy().into_owned(),
                             bytes: metadata.len(),
                             kind: "file",
@@ -429,6 +434,9 @@ pub fn scan<F: FnMut(ScanProgress)>(
                             modified_at_epoch_secs: modified
                                 .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
                                 .map(|duration| duration.as_secs()),
+                            modified_at_epoch_nanos: modified
+                                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                                .and_then(|duration| u64::try_from(duration.as_nanos()).ok()),
                         });
                     } else {
                         items_truncated = true;
@@ -444,6 +452,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
             totals.add(Category::EmptyFolders, 0);
             if items.len() < MAX_RESULTS {
                 items.push(ScanItem {
+                    candidate_id: format!("{scan_id}-{}", items.len()),
                     path: folder.to_string_lossy().into_owned(),
                     bytes: 0,
                     kind: "folder",
@@ -451,6 +460,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
                     classification: Classification::Review,
                     reason: "The folder is empty. Some applications intentionally create empty folders, so review it individually.".into(),
                     modified_at_epoch_secs: None,
+                    modified_at_epoch_nanos: None,
                 });
             } else {
                 items_truncated = true;
@@ -491,7 +501,7 @@ mod tests {
         fs::create_dir(root.join(".git")).unwrap();
         fs::write(root.join(".git").join("secret"), b"hidden").unwrap();
         fs::write(temp.path().join("outside"), b"outside").unwrap();
-        let result = scan(&root, &rules(), &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(&root, &rules(), "test", &AtomicBool::new(false), |_| {}).unwrap();
         assert_eq!(result.progress.files_seen, 1);
         assert_eq!(result.progress.bytes_seen, 5);
         assert!(result.items.is_empty());
@@ -501,7 +511,14 @@ mod tests {
     #[test]
     fn cancellation_does_not_report_complete() {
         let temp = tempfile::tempdir().unwrap();
-        let result = scan(temp.path(), &rules(), &AtomicBool::new(true), |_| {}).unwrap();
+        let result = scan(
+            temp.path(),
+            &rules(),
+            "test",
+            &AtomicBool::new(true),
+            |_| {},
+        )
+        .unwrap();
         assert!(result.cancelled);
         assert_eq!(result.progress.files_seen, 0);
     }
@@ -511,7 +528,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let file = temp.path().join("file");
         fs::write(&file, b"data").unwrap();
-        assert!(scan(&file, &rules(), &AtomicBool::new(false), |_| {}).is_err());
+        assert!(scan(&file, &rules(), "test", &AtomicBool::new(false), |_| {}).is_err());
     }
 
     #[test]
@@ -519,7 +536,14 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let filesystem_root = temp.path().ancestors().last().unwrap();
         assert!(protected(filesystem_root));
-        assert!(scan(filesystem_root, &rules(), &AtomicBool::new(false), |_| {}).is_err());
+        assert!(scan(
+            filesystem_root,
+            &rules(),
+            "test",
+            &AtomicBool::new(false),
+            |_| {}
+        )
+        .is_err());
     }
 
     #[test]
@@ -529,7 +553,7 @@ mod tests {
             fs::write(temp.path().join(format!("{index:03}.txt")), b"x").unwrap();
         }
         let cancel = AtomicBool::new(false);
-        let result = scan(temp.path(), &rules(), &cancel, |progress| {
+        let result = scan(temp.path(), &rules(), "test", &cancel, |progress| {
             if progress.files_seen >= 99 {
                 cancel.store(true, Ordering::Relaxed);
             }
@@ -573,7 +597,14 @@ mod tests {
     fn reports_empty_folders_for_individual_review() {
         let temp = tempfile::tempdir().unwrap();
         fs::create_dir(temp.path().join("empty")).unwrap();
-        let result = scan(temp.path(), &rules(), &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(
+            temp.path(),
+            &rules(),
+            "test",
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
         assert_eq!(result.progress.review_items_seen, 1);
         assert_eq!(result.items.len(), 1);
         assert_eq!(result.items[0].kind, "folder");
@@ -595,7 +626,14 @@ mod tests {
         assert_eq!(recent_state, Classification::Ignored);
 
         let temp = tempfile::tempdir().unwrap();
-        let result = scan(temp.path(), &custom, &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(
+            temp.path(),
+            &custom,
+            "test",
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
         assert_eq!(result.rules_used, custom);
     }
 
@@ -609,7 +647,14 @@ mod tests {
             excluded_paths: vec!["private".into()],
             ..rules()
         };
-        let result = scan(temp.path(), &custom, &AtomicBool::new(false), |_| {}).unwrap();
+        let result = scan(
+            temp.path(),
+            &custom,
+            "test",
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
         assert_eq!(result.progress.files_seen, 1);
         assert_eq!(result.progress.bytes_seen, 7);
     }

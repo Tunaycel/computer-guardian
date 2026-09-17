@@ -16,9 +16,11 @@ export function Dialog({ title, onClose, children }: DialogProps) {
     const dialog = ref.current;
     const trigger = document.activeElement;
     // Native modal semantics make the rest of the window inert.
-    dialog?.showModal();
+    if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+    else dialog?.setAttribute("open", "");
     return () => {
-      dialog?.close();
+      if (dialog && typeof dialog.close === "function") dialog.close();
+      else dialog?.removeAttribute("open");
       if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
     };
   }, []);

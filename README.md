@@ -12,7 +12,7 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone adds configurable conservative classification and exclusions to the read-only scanner:
+Version 0.1.0 is **unreleased**. The current milestone adds individually confirmed quarantine and safe restore to the conservative scanner:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
@@ -21,11 +21,13 @@ Version 0.1.0 is **unreleased**. The current milestone adds configurable conserv
 - In the native app only: choose one folder, scan file metadata, view counts and review candidates, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the result stores at most 500 candidates.
 - Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The default age thresholds are 30, 90, and 14 days respectively and can be changed from 1 to 3650 days.
 - Save up to 50 relative-path exclusions locally. Absolute paths, traversal segments, wildcards, and malformed settings are rejected in both TypeScript and Rust. Every result retains the rules used when that scan started.
-- Filter and inspect candidates in Cleanup. The interface shows at most 100 matching rows at once; all file-operation actions remain locked.
+- Filter and inspect candidates in Cleanup. The interface shows at most 100 matching rows at once. In the native app, one current scan candidate can be moved to private local Quarantine only after confirmation.
+- Restore quarantined files and empty folders to their original locations. Restore refuses to overwrite an existing item, and changed or stale scan candidates are rejected.
+- Keep permanent deletion unavailable. Quarantine records are journaled locally before a move and recovered from the payload state after an interrupted marker write.
 - Explain the future Protector scope without presenting fake measurements, an antivirus claim, or a security score.
 - Visible file-access and automatic-maintenance status.
 
-The scanner does not read file contents, change files, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, repository/dependency directories, and configured relative exclusions are skipped or rejected. Quarantine, restore, SQLite persistence, scheduling, and system-health providers are not implemented. The browser preview cannot scan.
+The scanner does not read file contents, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, repository/dependency directories, and configured relative exclusions are skipped or rejected. Cross-drive quarantine, permanent deletion, SQLite activity history, scheduling, and system-health providers are not implemented. The browser preview cannot scan, quarantine, or restore.
 
 ## Safety model
 
@@ -33,15 +35,15 @@ The planned workflow is **scan → understand → review → quarantine → dele
 
 Files must be individually reviewable. Age and extension are signals, not evidence that a file is unnecessary. Protected paths, exclusions, reparse points, changed files, locked files, and permission failures must be handled before cleanup can be enabled. Restore must never silently overwrite another file.
 
-Permanent deletion is excluded from the first release. Quarantine will remain disabled until restore and recovery tests pass.
+Permanent deletion is excluded from the first release. Quarantine and restore are available only for individually confirmed candidates from the latest completed scan. They are not automatic cleanup.
 
 ## Privacy
 
-The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. The color theme, scan thresholds, and relative exclusions are persisted in versioned local preferences. The development server and package installation use networking during development; the built interface has no external service dependency.
+The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. Quarantined payloads and their recovery journals stay in the app's private local data folder until restored. The color theme, scan thresholds, and relative exclusions are persisted in versioned local preferences. The development server and package installation use networking during development; the built interface has no external service dependency.
 
 ## Architecture
 
-React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns read-only filesystem traversal, cancellation, classification, and bounded result summaries. SQLite is planned for operation history and quarantine metadata, but has not been added before a working consumer exists.
+React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns filesystem traversal, cancellation, classification, bounded result summaries, current-candidate validation, quarantine journaling, moves, and restore. JSON recovery journals are used for this milestone; SQLite remains planned for durable activity history.
 
 Shared controls and semantic CSS tokens live in `src/components` and `src/styles.css`. Screens live in `src/features`; browser tests live in `tests/browser`. See [architecture decisions](docs/architecture.md) and the [quality standard](docs/quality-standard.md).
 
@@ -79,14 +81,14 @@ npm run tauri dev
 
 This command launched the native window on the development workstation after loading the Visual Studio C++ environment. If you just installed Rust or Build Tools, restart Windows and open a new terminal so Cargo, MSVC, and the Windows SDK are discoverable. `npm run tauri build` creates local desktop bundles; `npm run build` only produces frontend assets in `dist/`.
 
-Tests use isolated browser storage and never scan user folders. Rust scanner tests use temporary directories. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
+Tests use isolated browser storage and never scan user folders. Rust scanner and quarantine tests use temporary directories. They verify successful move/restore, stale-item rejection, empty-folder restore, and no-overwrite behavior. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
 
 ## Roadmap
 
-1. Add manual quarantine and safe restore together.
-2. Add duplicate detection.
-3. Add opt-in scheduling and limited system-health providers after the first release.
-4. Package and harden supported platforms.
+1. Harden manual quarantine and safe restore with native end-to-end recovery scenarios and signed distribution.
+2. Add a broader read-only computer scan and storage overview.
+3. Add duplicate detection.
+4. Add opt-in scheduling and limited system-health providers after the first release.
 
 Each phase must pass build, relevant tests, and UI inspection before the next is considered complete. The first release scope is defined in the [product specification](docs/product-specification.md).
 
