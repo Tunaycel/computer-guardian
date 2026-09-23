@@ -21,6 +21,14 @@ describe("application shell", () => {
     expect(screen.getByRole("heading", { name: "Scan a folder first" })).toBeVisible();
   });
 
+  it("explains that storage measurements require the native desktop app", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Storage" }));
+    expect(screen.getByRole("heading", { name: "Storage access requires the native desktop app" })).toBeVisible();
+    expect(screen.getByText(/No storage information has been collected/)).toBeVisible();
+  });
+
   it("explains Protector without claiming antivirus protection", async () => {
     const user = userEvent.setup();
     render(<App />);

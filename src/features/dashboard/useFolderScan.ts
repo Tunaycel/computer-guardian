@@ -26,6 +26,7 @@ export interface ScanItem {
 
 export interface ScanResult {
   root: string;
+  roots: string[];
   progress: ScanProgress;
   items: ScanItem[];
   categorySummaries: { category: ReviewCategory; count: number; bytes: number }[];
@@ -42,18 +43,16 @@ export function useFolderScan(rules: ScanRules) {
   const [error, setError] = useState<string | null>(null);
   const available = isTauri();
 
-  async function selectAndScan() {
+  async function runScan(command: "start_scan" | "start_common_scan", parameters: Record<string, unknown>) {
     if (!available || running) return;
     setError(null);
+    setResult(null);
+    setProgress(null);
+    setRunning(true);
     try {
-      const root = await open({ directory: true, multiple: false, title: "Choose a folder to scan" });
-      if (!root || Array.isArray(root)) return;
-      setResult(null);
-      setProgress(null);
-      setRunning(true);
       const onProgress = new Channel<ScanProgress>();
       onProgress.onmessage = setProgress;
-      const next = await invoke<ScanResult>("start_scan", { root, rules, onProgress });
+      const next = await invoke<ScanResult>(command, { ...parameters, rules, onProgress });
       setResult(next);
       setProgress(next.progress);
     } catch (cause) {
@@ -63,10 +62,26 @@ export function useFolderScan(rules: ScanRules) {
     }
   }
 
+  async function selectAndScan() {
+    if (!available || running) return;
+    setError(null);
+    try {
+      const root = await open({ directory: true, multiple: false, title: "Choose a folder to scan" });
+      if (!root || Array.isArray(root)) return;
+      await runScan("start_scan", { root });
+    } catch {
+      setError("The folder picker could not be opened.");
+    }
+  }
+
+  async function scanCommonLocations() {
+    await runScan("start_common_scan", {});
+  }
+
   async function cancel() {
     try { await invoke("cancel_scan"); }
     catch { setError("Cancellation could not be requested."); }
   }
 
-  return { available, running, progress, result, error, rules, selectAndScan, cancel };
+  return { available, running, progress, result, error, rules, selectAndScan, scanCommonLocations, cancel };
 }
