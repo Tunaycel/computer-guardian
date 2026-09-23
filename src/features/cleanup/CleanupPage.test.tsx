@@ -6,6 +6,7 @@ import { CleanupPage } from "./CleanupPage";
 
 const result: ScanResult = {
   root: "C:\\synthetic",
+  roots: ["C:\\synthetic"],
   progress: { filesSeen: 3, foldersSeen: 2, bytesSeen: 30, errors: 0, reviewItemsSeen: 3 },
   items: [
     { candidateId: "scan-1", path: "C:\\synthetic\\Screenshots\\old.png", bytes: 20, kind: "file", category: "screenshots", classification: "review", reason: "Screenshot was last modified 31 days ago, beyond the default 30-day review threshold.", modifiedAtEpochSecs: 1 },

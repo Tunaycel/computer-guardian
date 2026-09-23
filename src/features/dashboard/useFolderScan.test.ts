@@ -26,8 +26,8 @@ describe("native folder scan flow", () => {
   it("requests a selected folder and presents only returned metadata", async () => {
     vi.mocked(open).mockResolvedValue("C:\\synthetic");
     vi.mocked(invoke).mockResolvedValue({
-      root: "C:\\synthetic", progress: { filesSeen: 1, foldersSeen: 1, bytesSeen: 5, errors: 0, reviewItemsSeen: 1 },
-      items: [{ path: "C:\\synthetic\\file.tmp", bytes: 5, kind: "file", category: "temporaryFiles", classification: "review", reason: "Old temporary-file candidate.", modifiedAtEpochSecs: 1 }],
+      root: "C:\\synthetic", roots: ["C:\\synthetic"], progress: { filesSeen: 1, foldersSeen: 1, bytesSeen: 5, errors: 0, reviewItemsSeen: 1 },
+      items: [{ candidateId: "scan-1", path: "C:\\synthetic\\file.tmp", bytes: 5, kind: "file", category: "temporaryFiles", classification: "review", reason: "Old temporary-file candidate.", modifiedAtEpochSecs: 1 }],
       categorySummaries: [{ category: "temporaryFiles", count: 1, bytes: 5 }],
       cancelled: false, truncated: false, itemsTruncated: false,
       rulesUsed: DEFAULT_SCAN_RULES,
@@ -38,5 +38,19 @@ describe("native folder scan flow", () => {
     expect(invoke).toHaveBeenCalledWith("start_scan", expect.objectContaining({ root: "C:\\synthetic", rules: DEFAULT_SCAN_RULES }));
     await waitFor(() => expect(result.current.result?.progress.filesSeen).toBe(1));
     expect(result.current.running).toBe(false);
+  });
+
+  it("scans only the native approved common locations without opening a picker", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      root: "Approved common locations", roots: ["C:\\Users\\Example\\Downloads", "C:\\Users\\Example\\Desktop"],
+      progress: { filesSeen: 2, foldersSeen: 2, bytesSeen: 10, errors: 0, reviewItemsSeen: 0 },
+      items: [], categorySummaries: [], cancelled: false, truncated: false, itemsTruncated: false,
+      rulesUsed: DEFAULT_SCAN_RULES,
+    });
+    const { result } = renderHook(() => useFolderScan(DEFAULT_SCAN_RULES));
+    await act(async () => result.current.scanCommonLocations());
+    expect(open).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("start_common_scan", expect.objectContaining({ rules: DEFAULT_SCAN_RULES }));
+    expect(result.current.result?.roots).toHaveLength(2);
   });
 });

@@ -2,6 +2,7 @@
 
 mod quarantine;
 mod scanner;
+mod storage;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,13 +27,18 @@ fn quarantine_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|_| "The private application data folder is unavailable.".into())
 }
 
-#[tauri::command]
-async fn start_scan(
-    root: String,
-    rules: scanner::ScanRules,
-    on_progress: Channel<scanner::ScanProgress>,
-    state: State<'_, AppState>,
-) -> Result<scanner::ScanResult, String> {
+fn new_scan_id() -> String {
+    format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default()
+    )
+}
+
+fn begin_scan(state: &AppState) -> Result<Arc<AtomicBool>, String> {
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let operation = state
@@ -56,14 +62,46 @@ async fn start_scan(
         .lock()
         .map_err(|_| "Candidate state is unavailable.")?
         .clear();
-    let scan_id = format!(
-        "{}-{}",
-        std::process::id(),
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or_default()
-    );
+    Ok(cancel)
+}
+
+fn finish_scan(
+    state: &AppState,
+    result: Result<scanner::ScanResult, String>,
+) -> Result<scanner::ScanResult, String> {
+    *state
+        .running_scan
+        .lock()
+        .map_err(|_| "Scanner state is unavailable.")? = None;
+    let result = result?;
+    if !result.cancelled {
+        let candidates = result
+            .items
+            .iter()
+            .map(|item| {
+                (
+                    item.candidate_id.clone(),
+                    quarantine::CandidateSnapshot::from_scan_item(item),
+                )
+            })
+            .collect();
+        *state
+            .candidates
+            .lock()
+            .map_err(|_| "Candidate state is unavailable.")? = candidates;
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+async fn start_scan(
+    root: String,
+    rules: scanner::ScanRules,
+    on_progress: Channel<scanner::ScanProgress>,
+    state: State<'_, AppState>,
+) -> Result<scanner::ScanResult, String> {
+    let cancel = begin_scan(&state)?;
+    let scan_id = new_scan_id();
     let result = tauri::async_runtime::spawn_blocking(move || {
         scanner::scan(
             std::path::Path::new(&root),
@@ -76,29 +114,74 @@ async fn start_scan(
         )
     })
     .await
-    .map_err(|_| "The scan worker stopped unexpectedly.".to_string());
-    *state
-        .running_scan
-        .lock()
-        .map_err(|_| "Scanner state is unavailable.")? = None;
-    let result = result??;
-    if !result.cancelled {
-        let candidates = result
-            .items
-            .iter()
-            .map(|item| {
-                (
-                    item.candidate_id.clone(),
-                    quarantine::CandidateSnapshot::from_scan_item(&result.root, item),
-                )
-            })
-            .collect();
-        *state
-            .candidates
-            .lock()
-            .map_err(|_| "Candidate state is unavailable.")? = candidates;
+    .map_err(|_| "The scan worker stopped unexpectedly.".to_string())
+    .and_then(|result| result);
+    finish_scan(&state, result)
+}
+
+#[tauri::command]
+async fn start_common_scan(
+    rules: scanner::ScanRules,
+    on_progress: Channel<scanner::ScanProgress>,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<scanner::ScanResult, String> {
+    let locations = storage::approved_scan_locations(&app);
+    if locations.is_empty() {
+        return Err("No approved common folders are available on this account.".into());
     }
-    Ok(result)
+    let cancel = begin_scan(&state)?;
+    let scan_id = new_scan_id();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut results = Vec::new();
+        let mut completed = scanner::ScanProgress::default();
+        let mut root_errors = 0_u64;
+        for (index, location) in locations.into_iter().enumerate() {
+            if cancel.load(Ordering::Relaxed) {
+                break;
+            }
+            let base = completed.clone();
+            let location_scan_id = format!("{scan_id}-{index}");
+            match scanner::scan(
+                std::path::Path::new(&location.path),
+                &rules,
+                &location_scan_id,
+                &cancel,
+                |progress| {
+                    let _ = on_progress.send(base.plus(&progress));
+                },
+            ) {
+                Ok(result) => {
+                    completed = completed.plus(&result.progress);
+                    let cancelled = result.cancelled;
+                    results.push(result);
+                    if cancelled {
+                        break;
+                    }
+                }
+                Err(_) => {
+                    root_errors = root_errors.saturating_add(1);
+                    completed.errors = completed.errors.saturating_add(1);
+                    let _ = on_progress.send(completed.clone());
+                }
+            }
+        }
+        let mut merged = scanner::merge("Approved common locations", results, &rules);
+        merged.progress.errors = merged.progress.errors.saturating_add(root_errors);
+        merged.cancelled |= cancel.load(Ordering::Relaxed);
+        Ok(merged)
+    })
+    .await
+    .map_err(|_| "The common-folder scan worker stopped unexpectedly.".to_string())
+    .and_then(|result| result);
+    finish_scan(&state, result)
+}
+
+#[tauri::command]
+async fn get_storage_overview(app: tauri::AppHandle) -> Result<storage::StorageOverview, String> {
+    tauri::async_runtime::spawn_blocking(move || storage::overview(&app))
+        .await
+        .map_err(|_| "The storage measurement worker stopped unexpectedly.".to_string())?
 }
 
 #[tauri::command]
@@ -221,7 +304,9 @@ fn main() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             start_scan,
+            start_common_scan,
             cancel_scan,
+            get_storage_overview,
             quarantine_candidate,
             list_quarantine,
             restore_quarantine_item

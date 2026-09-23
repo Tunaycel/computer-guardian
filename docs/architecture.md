@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The React interface saves appearance and scan-rule preferences and presents scan summaries, review candidates, and local quarantine recovery records. The Tauri host owns folder scanning, rule validation, conservative classification, exclusions, cancellation, current-candidate authorization, quarantine, and restore. The native folder picker requires an explicit user choice; the browser preview cannot scan or perform file operations. Permanent deletion and automated cleanup remain unavailable. This is still a development milestone, not a production maintenance tool.
+The React interface saves appearance and scan-rule preferences and presents drive capacity, approved scan locations, scan summaries, review candidates, and local quarantine recovery records. The Tauri host owns Windows capacity enumeration, approved-location resolution, folder scanning, rule validation, conservative classification, exclusions, cancellation, current-candidate authorization, quarantine, and restore. The native folder picker requires an explicit user choice; the browser preview cannot measure storage, scan, or perform file operations. Permanent deletion and automated cleanup remain unavailable. This is still a development milestone, not a production maintenance tool.
 
 ## Decisions
 
@@ -17,13 +17,14 @@ The React interface saves appearance and scan-rule preferences and presents scan
 - Keep the latest completed scan's opaque candidate identifiers in Rust memory. Mutation IPC accepts an identifier, never an unrestricted source or destination path. Starting another scan invalidates the previous candidate set.
 - Journal quarantine intent in the app's private local data directory before moving a payload. Restore reloads this record, rejects reparse points and changed metadata, validates the original parent against the recorded scan root, and never overwrites an existing item.
 - Serialize scanning against quarantine/restore operations. Cross-drive moves and permanent deletion are deliberately unavailable.
+- Enumerate only fixed and removable local drives with Windows APIs. Report free and total bytes without traversing those drives. The approved common-location action resolves existing Downloads, Desktop, Pictures/Screenshots, and Windows temporary directories, scans them sequentially under the same cancellation token, and retains the originating root for every candidate.
 - Defer SQLite until durable activity history is implemented; the current recovery journal is one JSON intent plus state markers per quarantined payload.
 
 ## Filesystem boundary
 
 The scanner receives the folder selected by the native dialog and validates it again in Rust. System roots, known protected directories, and links/junctions are rejected. Rust owns traversal and cancellation. Quarantine commands only accept opaque identifiers belonging to candidates from the latest completed scan. Before moving an item, Rust re-canonicalizes its path, verifies that it remains inside the scan root, rejects reparse points and protected paths, compares type, size, and modification time, and rechecks that a folder is empty.
 
-Platform providers will isolate system information, storage, startup, and security queries. An unsupported check must remain explicitly unavailable. They must not manufacture a healthy state from missing data.
+The Windows storage provider is isolated from traversal: capacity measurement does not inspect directory entries. Memory, startup, and security providers remain explicitly unavailable and must not manufacture a healthy state from missing data.
 
 Quarantine writes and flushes intent before a same-volume rename, verifies the source disappeared and payload appeared, then writes a marker. Listing reconciles an interrupted marker write from payload/source presence. Restore refuses collisions and verifies the reverse move. Permanent deletion does not exist. Cross-volume moves, low-level handle-based protection against path replacement races, signed installer distribution, and richer interrupted-operation repair remain hardening work.
 
