@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, HardDrive } from "lucide-react";
+import { Activity } from "lucide-react";
 import { Shell } from "./components/Shell";
 import type { PageId } from "./domain/navigation";
 import { Dashboard } from "./features/dashboard/Dashboard";
@@ -12,10 +12,9 @@ import { UnavailablePage } from "./features/availability/UnavailablePage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { useAppearance } from "./features/settings/useAppearance";
 import { useScanRules } from "./features/settings/useScanRules";
+import { StoragePage } from "./features/storage/StoragePage";
 
 const pageContent = {
-  storage: { title: "Storage", description: "Disk capacity and usage.", icon: HardDrive,
-    message: "Storage information is unavailable.", detail: "This build does not read disk usage. No storage measurements have been collected." },
   activity: { title: "Activity", description: "Scan history and file operation results.", icon: Activity,
     message: "Activity history is not available yet.", detail: "This build does not persist a timeline. Open Quarantine to see items that are currently stored and restorable." },
 } as const;
@@ -52,6 +51,8 @@ export function App() {
           onRestore={quarantine.restore}
           onRefresh={quarantine.refresh}
         />
+      : activePage === "storage"
+        ? <StoragePage scan={scan} onOpenCleanup={() => setActivePage("cleanup")} />
       : activePage === "protector"
         ? <ProtectorPage />
     : activePage === "settings"

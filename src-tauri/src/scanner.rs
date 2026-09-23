@@ -79,7 +79,7 @@ impl ScanRules {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanProgress {
     pub files_seen: u64,
@@ -87,6 +87,20 @@ pub struct ScanProgress {
     pub bytes_seen: u64,
     pub errors: u64,
     pub review_items_seen: u64,
+}
+
+impl ScanProgress {
+    pub fn plus(&self, other: &Self) -> Self {
+        Self {
+            files_seen: self.files_seen.saturating_add(other.files_seen),
+            folders_seen: self.folders_seen.saturating_add(other.folders_seen),
+            bytes_seen: self.bytes_seen.saturating_add(other.bytes_seen),
+            errors: self.errors.saturating_add(other.errors),
+            review_items_seen: self
+                .review_items_seen
+                .saturating_add(other.review_items_seen),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -119,6 +133,8 @@ pub struct ScanItem {
     pub modified_at_epoch_secs: Option<u64>,
     #[serde(skip_serializing)]
     pub modified_at_epoch_nanos: Option<u64>,
+    #[serde(skip_serializing)]
+    pub scan_root: String,
 }
 
 #[derive(Serialize)]
@@ -133,6 +149,7 @@ pub struct CategorySummary {
 #[serde(rename_all = "camelCase")]
 pub struct ScanResult {
     pub root: String,
+    pub roots: Vec<String>,
     pub progress: ScanProgress,
     pub items: Vec<ScanItem>,
     pub category_summaries: Vec<CategorySummary>,
@@ -437,6 +454,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
                             modified_at_epoch_nanos: modified
                                 .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
                                 .and_then(|duration| u64::try_from(duration.as_nanos()).ok()),
+                            scan_root: root.to_string_lossy().into_owned(),
                         });
                     } else {
                         items_truncated = true;
@@ -461,6 +479,7 @@ pub fn scan<F: FnMut(ScanProgress)>(
                     reason: "The folder is empty. Some applications intentionally create empty folders, so review it individually.".into(),
                     modified_at_epoch_secs: None,
                     modified_at_epoch_nanos: None,
+                    scan_root: root.to_string_lossy().into_owned(),
                 });
             } else {
                 items_truncated = true;
@@ -471,8 +490,10 @@ pub fn scan<F: FnMut(ScanProgress)>(
         }
     }
     report(progress.clone());
+    let root = root.to_string_lossy().into_owned();
     Ok(ScanResult {
-        root: root.to_string_lossy().into_owned(),
+        roots: vec![root.clone()],
+        root,
         progress,
         items,
         category_summaries: totals.summaries(),
@@ -481,6 +502,52 @@ pub fn scan<F: FnMut(ScanProgress)>(
         items_truncated,
         rules_used: rules.clone(),
     })
+}
+
+pub fn merge(label: &str, results: Vec<ScanResult>, rules: &ScanRules) -> ScanResult {
+    let mut progress = ScanProgress::default();
+    let mut totals = Totals::default();
+    let mut roots = Vec::new();
+    let mut items = Vec::new();
+    let mut cancelled = false;
+    let mut truncated = false;
+    let mut items_truncated = false;
+
+    for result in results {
+        progress = progress.plus(&result.progress);
+        roots.extend(result.roots);
+        cancelled |= result.cancelled;
+        truncated |= result.truncated;
+        items_truncated |= result.items_truncated;
+        for summary in result.category_summaries {
+            let target = match summary.category {
+                Category::Screenshots => &mut totals.screenshots,
+                Category::Downloads => &mut totals.downloads,
+                Category::TemporaryFiles => &mut totals.temporary_files,
+                Category::EmptyFolders => &mut totals.empty_folders,
+                Category::Other => continue,
+            };
+            target.0 = target.0.saturating_add(summary.count);
+            target.1 = target.1.saturating_add(summary.bytes);
+        }
+        let remaining = MAX_RESULTS.saturating_sub(items.len());
+        if result.items.len() > remaining {
+            items_truncated = true;
+        }
+        items.extend(result.items.into_iter().take(remaining));
+    }
+
+    ScanResult {
+        root: label.into(),
+        roots,
+        progress,
+        items,
+        category_summaries: totals.summaries(),
+        cancelled,
+        truncated,
+        items_truncated,
+        rules_used: rules.clone(),
+    }
 }
 
 #[cfg(test)]

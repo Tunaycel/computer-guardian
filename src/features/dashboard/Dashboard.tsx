@@ -51,8 +51,12 @@ export function Dashboard({ scan }: { scan: FolderScan }) {
         {scan.error && <p className="error-text" role="alert">{scan.error}</p>}
         {scan.progress && <p className="scan-summary" role="status">{scan.running ? "Scanning:" : scan.result?.cancelled ? "Cancelled:" : "Scan finished:"} {scan.progress.filesSeen.toLocaleString()} files, {scan.progress.foldersSeen.toLocaleString()} folders, {formatBytes(scan.progress.bytesSeen)} counted, {scan.progress.reviewItemsSeen.toLocaleString()} candidates for review. {scan.progress.errors > 0 && `${scan.progress.errors} unreadable entries.`}</p>}
         {scan.result ? <>
-          <p className="scan-root">Selected folder: <strong>{formatScanRootName(scan.result.root)}</strong></p>
-          <details className="path-details"><summary>Show full path</summary><code>{formatScanPath(scan.result.root)}</code></details>
+          <p className="scan-root">{scan.result.roots.length > 1 ? "Scan scope" : "Selected folder"}: <strong>{formatScanRootName(scan.result.root)}</strong></p>
+          <details className="path-details"><summary>{scan.result.roots.length > 1 ? "Show scanned locations" : "Show full path"}</summary>
+            {scan.result.roots.length > 1
+              ? <ul className="path-list">{scan.result.roots.map(root => <li key={root}><code>{formatScanPath(root)}</code></li>)}</ul>
+              : <code>{formatScanPath(scan.result.root)}</code>}
+          </details>
           <p className="panel-note">Only metadata was read. Links, junctions, known repository/dependency folders, and {scan.result.rulesUsed.excludedPaths.length.toLocaleString()} saved relative exclusions were skipped. Candidates are signals for review, not a list of safe-to-delete files. {scan.result.truncated && "The scan stopped at its 100,000-entry safety limit."} {scan.result.itemsTruncated && "The review list is limited to 500 items."}</p>
         </> : !scan.running && <EmptyState icon={ShieldCheck} title="No files have been examined">
           {scan.available ? "Choose a folder to start a read-only scan. No folder is accessed automatically." : "Your folders have not been accessed. Open the native app to scan a folder."}
@@ -60,8 +64,8 @@ export function Dashboard({ scan }: { scan: FolderScan }) {
         <Button onClick={() => setShowSafety(true)}>Review safety model</Button>
       </section>
       <section className="content-panel" aria-labelledby="health-heading">
-        <header className="content-panel__header"><h2 id="health-heading">System checks</h2><StatusBadge label="Unavailable" /></header>
-        <p className="section-description">Storage, memory, startup, and security checks have not been performed. No health assessment is available.</p>
+        <header className="content-panel__header"><h2 id="health-heading">System checks</h2><StatusBadge label="Partially available" /></header>
+        <p className="section-description">Local drive capacity is available on the Storage page. Memory, startup, and security checks have not been performed, so no overall health assessment is shown.</p>
       </section>
       {showSafety && <Dialog title="Safety model" onClose={() => setShowSafety(false)}>
         <p>The cleanup workflow is designed around individual review and recoverable file operations.</p>
@@ -71,7 +75,7 @@ export function Dashboard({ scan }: { scan: FolderScan }) {
           <li><strong>Quarantine</strong><span>Move selected files while recording their original locations.</span></li>
           <li><strong>Restore or delete</strong><span>Restore without overwriting existing files. Permanent deletion requires a separate action.</span></li>
         </ol>
-        <p className="muted">Only read-only folder scanning is enabled in the native build. Quarantine, restore, and deletion are not enabled.</p>
+        <p className="muted">Read-only scanning, individually confirmed quarantine, and safe restore are enabled in the native build. Permanent deletion and automatic cleanup remain unavailable.</p>
         <footer className="dialog__footer"><Button onClick={() => setShowSafety(false)}>Close</Button></footer>
       </Dialog>}
     </div>

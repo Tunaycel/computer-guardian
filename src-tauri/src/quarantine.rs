@@ -21,11 +21,11 @@ pub struct CandidateSnapshot {
 }
 
 impl CandidateSnapshot {
-    pub fn from_scan_item(root: &str, item: &ScanItem) -> Self {
+    pub fn from_scan_item(item: &ScanItem) -> Self {
         Self {
             id: item.candidate_id.clone(),
             source: PathBuf::from(&item.path),
-            scan_root: PathBuf::from(root),
+            scan_root: PathBuf::from(&item.scan_root),
             bytes: item.bytes,
             kind: item.kind.into(),
             modified_at_epoch_nanos: item.modified_at_epoch_nanos,
