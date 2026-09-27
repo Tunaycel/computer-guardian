@@ -80,6 +80,8 @@ describe("storage overview", () => {
     };
     render(<StoragePage scan={scan()} duplicates={analysis} onOpenCleanup={vi.fn()} />);
     expect(screen.getByText("1 verified group")).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Duplicate optimization opportunity" })).toHaveValue(33);
+    expect(screen.getByText(/not computer health or speed/)).toBeVisible();
     expect(screen.getByText("No files were changed.", { exact: false })).toBeVisible();
     await user.click(screen.getByText("Show file paths"));
     expect(screen.getByText(/one\.bin/)).toBeVisible();

@@ -16,6 +16,10 @@ function driveNumbers(totalBytes: number, freeBytes: number) {
   return { usedBytes, usedPercent, freePercent: 100 - usedPercent };
 }
 
+function optimizationOpportunity(reclaimableBytes: number, analyzedBytes: number) {
+  return analyzedBytes > 0 ? Math.min(100, Math.round((reclaimableBytes / analyzedBytes) * 100)) : 0;
+}
+
 export function StoragePage({ scan, duplicates, onOpenCleanup }: { scan: FolderScan; duplicates: DuplicateAnalysis; onOpenCleanup: () => void }) {
   const storage = useStorageOverview();
   const commonResult = scan.result?.root === "Approved common locations" ? scan.result : null;
@@ -102,6 +106,24 @@ export function StoragePage({ scan, duplicates, onOpenCleanup }: { scan: FolderS
           {duplicates.result && !duplicates.running ? <div className="duplicate-results">
             <details className="path-details"><summary>Show analyzed folder</summary><code>{formatScanPath(duplicates.result.root)}</code></details>
             {duplicates.result.groups.length ? <>
+              <div className="optimization-opportunity">
+                <div className="optimization-opportunity__label">
+                  <strong>Duplicate optimization opportunity</strong>
+                  <span>{optimizationOpportunity(duplicates.result.reclaimableBytes, duplicates.result.progress.bytesSeen)}% of analyzed file data · {formatBytes(duplicates.result.reclaimableBytes)} potentially reclaimable</span>
+                </div>
+                <div
+                  className="optimization-bar"
+                  role="progressbar"
+                  aria-label="Duplicate optimization opportunity"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={optimizationOpportunity(duplicates.result.reclaimableBytes, duplicates.result.progress.bytesSeen)}
+                  aria-valuetext={`${formatBytes(duplicates.result.reclaimableBytes)} potentially reclaimable from ${formatBytes(duplicates.result.progress.bytesSeen)} analyzed`}
+                >
+                  <span style={{ width: `${optimizationOpportunity(duplicates.result.reclaimableBytes, duplicates.result.progress.bytesSeen)}%` }} />
+                </div>
+                <p className="panel-note">This measures duplicate-file opportunity in the selected folder, not computer health or speed.</p>
+              </div>
               <div className="duplicate-summary" aria-label="Duplicate analysis summary">
                 <div><strong>{duplicates.result.groups.length.toLocaleString()}</strong><span>verified groups shown</span></div>
                 <div><strong>{duplicates.result.duplicateFiles.toLocaleString()}</strong><span>files in matching groups</span></div>
