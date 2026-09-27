@@ -1,12 +1,14 @@
-import { HardDrive, RefreshCw, ScanSearch, ShieldCheck } from "lucide-react";
+import { Files, Fingerprint, HardDrive, RefreshCw, ScanSearch, ShieldCheck } from "lucide-react";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { formatBytes, formatScanPath } from "../cleanup/scanPresentation";
 import type { useFolderScan } from "../dashboard/useFolderScan";
 import { useStorageOverview } from "./useStorageOverview";
+import type { useDuplicateAnalysis } from "./useDuplicateAnalysis";
 
 type FolderScan = ReturnType<typeof useFolderScan>;
+type DuplicateAnalysis = ReturnType<typeof useDuplicateAnalysis>;
 
 function driveNumbers(totalBytes: number, freeBytes: number) {
   const usedBytes = Math.max(0, totalBytes - freeBytes);
@@ -14,7 +16,7 @@ function driveNumbers(totalBytes: number, freeBytes: number) {
   return { usedBytes, usedPercent, freePercent: 100 - usedPercent };
 }
 
-export function StoragePage({ scan, onOpenCleanup }: { scan: FolderScan; onOpenCleanup: () => void }) {
+export function StoragePage({ scan, duplicates, onOpenCleanup }: { scan: FolderScan; duplicates: DuplicateAnalysis; onOpenCleanup: () => void }) {
   const storage = useStorageOverview();
   const commonResult = scan.result?.root === "Approved common locations" ? scan.result : null;
 
@@ -67,13 +69,64 @@ export function StoragePage({ scan, onOpenCleanup }: { scan: FolderScan; onOpenC
             </li>)}
           </ul> : <p className="section-description">No approved common folders are available for this Windows account.</p>}
           <div className="storage-actions">
-            <Button variant="primary" onClick={scan.scanCommonLocations} disabled={scan.running || !storage.overview?.approvedLocations.length} aria-describedby="common-scan-safety"><ScanSearch size={16} aria-hidden="true" />Scan common locations</Button>
+            <Button variant="primary" onClick={scan.scanCommonLocations} disabled={scan.running || duplicates.running || !storage.overview?.approvedLocations.length} aria-describedby="common-scan-safety"><ScanSearch size={16} aria-hidden="true" />Scan common locations</Button>
             {scan.running ? <Button onClick={scan.cancel}>Cancel scan</Button> : null}
           </div>
           <p className="panel-note" id="common-scan-safety"><ShieldCheck size={15} aria-hidden="true" /> This replaces the latest scan. It never scans the whole C: drive, Windows, Documents, or program folders, and it never deletes automatically.</p>
           {scan.error ? <p className="error-text" role="alert">{scan.error}</p> : null}
           {scan.progress ? <p className="scan-summary" role="status">{scan.running ? "Scanning:" : commonResult?.cancelled ? "Cancelled:" : "Latest scan:"} {scan.progress.filesSeen.toLocaleString()} files, {scan.progress.foldersSeen.toLocaleString()} folders, {formatBytes(scan.progress.bytesSeen)} counted, {scan.progress.reviewItemsSeen.toLocaleString()} candidates for review.</p> : null}
           {commonResult && !scan.running ? <div className="scan-result-action"><span>{commonResult.items.length.toLocaleString()} stored candidate{commonResult.items.length === 1 ? "" : "s"} ready for individual review.</span><Button onClick={onOpenCleanup}>Review candidates</Button></div> : null}
+        </section>
+
+        <section className="content-panel" aria-labelledby="duplicate-analysis-heading">
+          <header className="content-panel__header">
+            <div><h2 id="duplicate-analysis-heading">Duplicate analysis</h2><p className="panel-note">Find files with verified matching contents inside one folder.</p></div>
+            <StatusBadge
+              label={duplicates.running ? "Analyzing" : duplicates.result ? `${duplicates.result.groups.length.toLocaleString()} verified group${duplicates.result.groups.length === 1 ? "" : "s"}` : "Not run"}
+              tone={duplicates.result?.groups.length ? "healthy" : "neutral"}
+            />
+          </header>
+          <div className="privacy-explainer">
+            <Fingerprint size={20} aria-hidden="true" />
+            <p>Files are grouped by size first. Only same-size candidates are read and hashed locally with SHA-256. File contents and hashes never leave this computer and are not saved.</p>
+          </div>
+          <div className="storage-actions">
+            <Button variant="primary" onClick={duplicates.selectAndAnalyze} disabled={duplicates.running || scan.running} aria-describedby="duplicate-safety"><Files size={16} aria-hidden="true" />Choose folder and find duplicates</Button>
+            {duplicates.running ? <Button onClick={duplicates.cancel}>Cancel analysis</Button> : null}
+          </div>
+          <p className="panel-note" id="duplicate-safety"><ShieldCheck size={15} aria-hidden="true" /> This is a read-only report. It does not move, quarantine, or delete any file.</p>
+          {duplicates.error ? <p className="error-text" role="alert">{duplicates.error}</p> : null}
+          {duplicates.progress ? <p className="scan-summary" role="status">
+            {duplicates.running ? duplicates.progress.phase === "inventory" ? "Inventorying:" : "Verifying contents:" : duplicates.result?.cancelled ? "Cancelled:" : "Analysis complete:"} {duplicates.progress.filesSeen.toLocaleString()} files found, {duplicates.progress.candidateFiles.toLocaleString()} same-size candidates, {duplicates.progress.filesHashed.toLocaleString()} files verified, {formatBytes(duplicates.progress.bytesHashed)} read{duplicates.progress.errors ? `, ${duplicates.progress.errors.toLocaleString()} access errors` : ""}.
+          </p> : null}
+          {duplicates.result && !duplicates.running ? <div className="duplicate-results">
+            <details className="path-details"><summary>Show analyzed folder</summary><code>{formatScanPath(duplicates.result.root)}</code></details>
+            {duplicates.result.groups.length ? <>
+              <div className="duplicate-summary" aria-label="Duplicate analysis summary">
+                <div><strong>{duplicates.result.groups.length.toLocaleString()}</strong><span>verified groups shown</span></div>
+                <div><strong>{duplicates.result.duplicateFiles.toLocaleString()}</strong><span>files in matching groups</span></div>
+                <div><strong>{formatBytes(duplicates.result.reclaimableBytes)}</strong><span>potentially reclaimable</span></div>
+              </div>
+              <ol className="duplicate-groups">
+                {duplicates.result.groups.map(group => <li key={group.id}>
+                  <div className="duplicate-group__header">
+                    <strong>{group.fileCount.toLocaleString()} matching files</strong>
+                    <span>{formatBytes(group.bytesPerFile)} each · up to {formatBytes(group.reclaimableBytes)} reclaimable</span>
+                  </div>
+                  <details className="path-details">
+                    <summary>Show file paths</summary>
+                    <ul className="path-list">
+                      {group.files.map(file => <li key={file.path}><code>{formatScanPath(file.path)}</code></li>)}
+                    </ul>
+                    {group.filesTruncated ? <p className="panel-note">Additional matching paths were not displayed.</p> : null}
+                  </details>
+                </li>)}
+              </ol>
+              {duplicates.result.groupsTruncated ? <p className="panel-note">Only the 200 largest duplicate groups are shown.</p> : null}
+            </> : <EmptyState icon={Files} title="No verified duplicates found">No non-empty files with matching size and SHA-256 content were found in this analysis.</EmptyState>}
+            {duplicates.result.truncated ? <p className="error-text">The safety limit was reached, so this is a partial report.</p> : null}
+            <div className="action-lock"><ShieldCheck size={18} aria-hidden="true" /><span>No files were changed. Keep one original before removing any duplicate in a future cleanup step.</span></div>
+          </div> : null}
         </section>
       </>}
     </div>
