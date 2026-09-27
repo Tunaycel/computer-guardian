@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod duplicates;
 mod quarantine;
 mod scanner;
 mod storage;
@@ -38,7 +39,7 @@ fn new_scan_id() -> String {
     )
 }
 
-fn begin_scan(state: &AppState) -> Result<Arc<AtomicBool>, String> {
+fn begin_scan(state: &AppState, invalidate_candidates: bool) -> Result<Arc<AtomicBool>, String> {
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let operation = state
@@ -57,11 +58,13 @@ fn begin_scan(state: &AppState) -> Result<Arc<AtomicBool>, String> {
         }
         *running = Some(cancel.clone());
     }
-    state
-        .candidates
-        .lock()
-        .map_err(|_| "Candidate state is unavailable.")?
-        .clear();
+    if invalidate_candidates {
+        state
+            .candidates
+            .lock()
+            .map_err(|_| "Candidate state is unavailable.")?
+            .clear();
+    }
     Ok(cancel)
 }
 
@@ -100,7 +103,7 @@ async fn start_scan(
     on_progress: Channel<scanner::ScanProgress>,
     state: State<'_, AppState>,
 ) -> Result<scanner::ScanResult, String> {
-    let cancel = begin_scan(&state)?;
+    let cancel = begin_scan(&state, true)?;
     let scan_id = new_scan_id();
     let result = tauri::async_runtime::spawn_blocking(move || {
         scanner::scan(
@@ -130,7 +133,7 @@ async fn start_common_scan(
     if locations.is_empty() {
         return Err("No approved common folders are available on this account.".into());
     }
-    let cancel = begin_scan(&state)?;
+    let cancel = begin_scan(&state, true)?;
     let scan_id = new_scan_id();
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut results = Vec::new();
@@ -182,6 +185,29 @@ async fn get_storage_overview(app: tauri::AppHandle) -> Result<storage::StorageO
     tauri::async_runtime::spawn_blocking(move || storage::overview(&app))
         .await
         .map_err(|_| "The storage measurement worker stopped unexpectedly.".to_string())?
+}
+
+#[tauri::command]
+async fn start_duplicate_scan(
+    root: String,
+    rules: scanner::ScanRules,
+    on_progress: Channel<duplicates::DuplicateProgress>,
+    state: State<'_, AppState>,
+) -> Result<duplicates::DuplicateResult, String> {
+    let cancel = begin_scan(&state, false)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        duplicates::scan(std::path::Path::new(&root), &rules, &cancel, |progress| {
+            let _ = on_progress.send(progress);
+        })
+    })
+    .await
+    .map_err(|_| "The duplicate-analysis worker stopped unexpectedly.".to_string())
+    .and_then(|result| result);
+    *state
+        .running_scan
+        .lock()
+        .map_err(|_| "Scanner state is unavailable.")? = None;
+    result
 }
 
 #[tauri::command]
@@ -305,6 +331,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             start_scan,
             start_common_scan,
+            start_duplicate_scan,
             cancel_scan,
             get_storage_overview,
             quarantine_candidate,

@@ -12,7 +12,7 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone adds a read-only Windows storage overview and approved common-location scan to the conservative quarantine workflow:
+Version 0.1.0 is **unreleased**. The current milestone adds read-only Windows storage and duplicate analysis to the conservative quarantine workflow:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
@@ -21,6 +21,7 @@ Version 0.1.0 is **unreleased**. The current milestone adds a read-only Windows 
 - In the native app only: choose one folder, scan file metadata, view counts and review candidates, and cancel an in-progress scan. A 100,000-entry limit bounds traversal; the result stores at most 500 candidates.
 - Measure fixed and removable local-drive capacity through Windows without reading file contents. The Storage screen shows exact free/used values, a text-labelled capacity meter, and an explicit low-free-space review signal rather than a health score.
 - Scan only existing approved common locations—Downloads, Desktop, Pictures/Screenshots, and the Windows temporary directory—in one bounded, cancellable operation. It never expands this action into a whole-drive, Documents, Windows, or program-folder scan.
+- Analyze one explicitly selected folder for duplicate files. Rust groups non-empty files by metadata size, then streams SHA-256 only for same-size candidates. The report shows verified groups and potentially reclaimable space but offers no move or delete action. Traversal is capped at 100,000 entries, hashing at 50 GB, output at 200 groups, and displayed paths at 50 per group.
 - Classify old screenshots, old downloads, temporary-file candidates, and empty folders for review using explicit reasons. The default age thresholds are 30, 90, and 14 days respectively and can be changed from 1 to 3650 days.
 - Save up to 50 relative-path exclusions locally. Absolute paths, traversal segments, wildcards, and malformed settings are rejected in both TypeScript and Rust. Every result retains the rules used when that scan started.
 - Filter and inspect candidates in Cleanup. The interface shows at most 100 matching rows at once. In the native app, one current scan candidate can be moved to private local Quarantine only after confirmation.
@@ -29,7 +30,7 @@ Version 0.1.0 is **unreleased**. The current milestone adds a read-only Windows 
 - Explain the future Protector scope without presenting fake measurements, an antivirus claim, or a security score.
 - Visible file-access and automatic-maintenance status.
 
-The scanner does not read file contents, classify files as safe to delete, or scan automatically. Known protected system folders, symlinks/junctions, repository/dependency directories, and configured relative exclusions are skipped or rejected. Cross-drive quarantine, permanent deletion, SQLite activity history, scheduling, and memory/startup/security providers are not implemented. The browser preview cannot read drive capacity, scan, quarantine, or restore.
+The cleanup scanner does not read file contents, classify files as safe to delete, or scan automatically. Duplicate analysis reads only same-size candidate contents locally and does not retain or expose their hashes. Known protected system folders, symlinks/junctions, repository/dependency directories, and configured relative exclusions are skipped or rejected. Cross-drive quarantine, permanent deletion, SQLite activity history, scheduling, and memory/startup/security providers are not implemented. The browser preview cannot read drive capacity, scan, analyze duplicates, quarantine, or restore.
 
 ## Safety model
 
@@ -41,11 +42,11 @@ Permanent deletion is excluded from the first release. Quarantine and restore ar
 
 ## Privacy
 
-The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results stay in memory and disappear when the app closes. Quarantined payloads and their recovery journals stay in the app's private local data folder until restored. The color theme, scan thresholds, and relative exclusions are persisted in versioned local preferences. The development server and package installation use networking during development; the built interface has no external service dependency.
+The application has no account, telemetry, remote fonts, cloud classification, or file uploads. Scan results and duplicate hashes stay in memory and disappear when the app closes. File content read for duplicate verification never leaves the computer. Quarantined payloads and their recovery journals stay in the app's private local data folder until restored. The color theme, scan thresholds, and relative exclusions are persisted in versioned local preferences. The development server and package installation use networking during development; the built interface has no external service dependency.
 
 ## Architecture
 
-React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns Windows drive-capacity enumeration, approved-location resolution, filesystem traversal, cancellation, classification, bounded result summaries, current-candidate validation, quarantine journaling, moves, and restore. JSON recovery journals are used for this milestone; SQLite remains planned for durable activity history.
+React and TypeScript provide the interface. Tauri provides the desktop host; Rust owns Windows drive-capacity enumeration, approved-location resolution, filesystem traversal, cancellation, classification, bounded duplicate hashing and result summaries, current-candidate validation, quarantine journaling, moves, and restore. JSON recovery journals are used for this milestone; SQLite remains planned for durable activity history.
 
 Shared controls and semantic CSS tokens live in `src/components` and `src/styles.css`. Screens live in `src/features`; browser tests live in `tests/browser`. See [architecture decisions](docs/architecture.md) and the [quality standard](docs/quality-standard.md).
 
@@ -83,12 +84,12 @@ npm run tauri dev
 
 This command launched the native window on the development workstation after loading the Visual Studio C++ environment. If you just installed Rust or Build Tools, restart Windows and open a new terminal so Cargo, MSVC, and the Windows SDK are discoverable. `npm run tauri build` creates local desktop bundles; `npm run build` only produces frontend assets in `dist/`.
 
-Tests use isolated browser storage and never scan user folders. Rust scanner and quarantine tests use temporary directories. They verify successful move/restore, stale-item rejection, empty-folder restore, and no-overwrite behavior. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
+Tests use isolated browser storage and never scan user folders. Rust scanner, duplicate-analysis, and quarantine tests use temporary directories. They verify full-content duplicate matching, same-size differences, cancellation, successful move/restore, stale-item rejection, empty-folder restore, and no-overwrite behavior. The browser suite checks all destinations in both themes with axe, verifies modal keyboard behaviour, and checks narrow layout and saved appearance. Automated accessibility checks supplement manual inspection; they do not establish complete accessibility conformance.
 
 ## Roadmap
 
 1. Harden manual quarantine, approved-location scanning, and safe restore with native end-to-end recovery scenarios and signed distribution.
-2. Add duplicate detection without reading or uploading file contents unnecessarily.
+2. Harden duplicate analysis with native end-to-end testing and an individually confirmed keep/remove workflow that defaults to quarantine.
 3. Add durable local activity history.
 4. Add opt-in scheduling and limited memory/startup/security providers after the first release.
 
