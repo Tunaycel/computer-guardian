@@ -13,6 +13,7 @@ import { SettingsPage } from "./features/settings/SettingsPage";
 import { useAppearance } from "./features/settings/useAppearance";
 import { useScanRules } from "./features/settings/useScanRules";
 import { StoragePage } from "./features/storage/StoragePage";
+import { useDuplicateAnalysis } from "./features/storage/useDuplicateAnalysis";
 
 const pageContent = {
   activity: { title: "Activity", description: "Scan history and file operation results.", icon: Activity,
@@ -24,6 +25,7 @@ export function App() {
   const appearance = useAppearance();
   const scanRules = useScanRules();
   const scan = useFolderScan(scanRules.rules);
+  const duplicates = useDuplicateAnalysis(scanRules.rules);
   const quarantine = useQuarantine();
 
   const page = activePage === "dashboard"
@@ -52,7 +54,7 @@ export function App() {
           onRefresh={quarantine.refresh}
         />
       : activePage === "storage"
-        ? <StoragePage scan={scan} onOpenCleanup={() => setActivePage("cleanup")} />
+        ? <StoragePage scan={scan} duplicates={duplicates} onOpenCleanup={() => setActivePage("cleanup")} />
       : activePage === "protector"
         ? <ProtectorPage />
     : activePage === "settings"
@@ -60,7 +62,7 @@ export function App() {
       : <UnavailablePage {...pageContent[activePage]} />;
 
   return (
-    <Shell activePage={activePage} onNavigate={setActivePage} fileAccess={quarantine.busyId ? "confirmed move in progress" : scan.running ? "read-only scan in progress" : "inactive"}>
+    <Shell activePage={activePage} onNavigate={setActivePage} fileAccess={quarantine.busyId ? "confirmed move in progress" : duplicates.running ? "duplicate analysis in progress" : scan.running ? "read-only scan in progress" : "inactive"}>
       {page}
     </Shell>
   );

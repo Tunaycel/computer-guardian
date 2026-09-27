@@ -278,7 +278,7 @@ fn classify_file(
     }
 }
 
-fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+pub(crate) fn is_reparse_point(metadata: &fs::Metadata) -> bool {
     if metadata.file_type().is_symlink() {
         return true;
     }
@@ -329,14 +329,14 @@ pub(crate) fn protected(root: &Path) -> bool {
     false
 }
 
-fn excluded(name: &str) -> bool {
+pub(crate) fn excluded(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
         ".git" | "node_modules" | ".venv" | "venv" | "$recycle.bin" | "system volume information"
     )
 }
 
-fn user_excluded(path: &Path, root: &Path, rules: &ScanRules) -> bool {
+pub(crate) fn user_excluded(path: &Path, root: &Path, rules: &ScanRules) -> bool {
     let Ok(relative) = path.strip_prefix(root) else {
         return false;
     };
