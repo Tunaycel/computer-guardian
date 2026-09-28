@@ -12,7 +12,7 @@ Cleaning storage should be an understandable decision. Computer Guardian is desi
 
 ## Features and current status
 
-Version 0.1.0 is **unreleased**. The current milestone adds read-only Windows storage and duplicate analysis to the conservative quarantine workflow:
+Version 0.1.0 is **unreleased alpha software**. The current milestone adds read-only Windows storage and duplicate analysis to the conservative quarantine workflow:
 
 - Seven navigation destinations with explicit feature-availability messages.
 - Keyboard navigation and a modal safety explanation with focus containment and restoration.
@@ -97,12 +97,14 @@ Each phase must pass build, relevant tests, and UI inspection before the next is
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). Changes should explain the problem, the resulting behaviour, and the tests or inspection used to verify it. The GitHub repository is private and no supported release has been published.
+Read [CONTRIBUTING.md](CONTRIBUTING.md). Changes should explain the problem, the resulting behaviour, and the tests or inspection used to verify it. The GitHub repository remains private while the first public alpha is prepared; no supported release has been published.
 
 ## Security
 
-Read [SECURITY.md](SECURITY.md). A private reporting channel must be configured before public distribution.
+Read [SECURITY.md](SECURITY.md). Please do not open public issues containing vulnerabilities, private filenames, credentials, or real user data.
 
-## License
+## License and branding
 
-[MIT](LICENSE).
+Computer Guardian's source code is licensed under [GNU GPL version 3 only](LICENSE). Modified distributions must remain under the GPL and provide their corresponding source code.
+
+The source-code license does not grant permission to present a fork as the official Computer Guardian project. See [TRADEMARKS.md](TRADEMARKS.md) for the name, logo, and visual-identity policy.

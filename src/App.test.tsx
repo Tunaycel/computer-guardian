@@ -94,4 +94,13 @@ describe("application shell", () => {
     expect(screen.getByRole("spinbutton", { name: "Screenshots" })).toHaveValue(30);
     expect(screen.getByRole("textbox", { name: "Excluded relative paths" })).toHaveValue("");
   });
+
+  it("shows accurate maintenance and GPL notices in settings", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByText(/Quarantine and restore require individual confirmation/)).toBeVisible();
+    expect(screen.getByText(/licensed under GNU GPL version 3 only/)).toBeVisible();
+    expect(screen.getByText(/comes with no warranty/)).toBeVisible();
+  });
 });
