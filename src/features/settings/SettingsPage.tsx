@@ -116,12 +116,17 @@ export function SettingsPage({ theme, changeTheme, saveError, rules, saveRules, 
       </section>
       <section className="content-panel" aria-labelledby="maintenance-heading">
         <h2 id="maintenance-heading">Maintenance</h2>
-        <p className="section-description">Scanning stays manual and read-only. Quarantine, restore, retention, and notifications remain unavailable.</p>
+        <p className="section-description">Scanning stays manual. Quarantine and restore require individual confirmation; automatic cleanup and permanent deletion remain unavailable.</p>
         <dl className="settings-list">
           <div><dt>Automatic scans</dt><dd>Off · unavailable</dd></div>
           <div><dt>Automatic quarantine</dt><dd>Off · unavailable</dd></div>
           <div><dt>Permanent deletion</dt><dd>Unavailable</dd></div>
         </dl>
+      </section>
+      <section className="content-panel" aria-labelledby="legal-heading">
+        <h2 id="legal-heading">Legal</h2>
+        <p className="section-description">Computer Guardian 0.1.0 development build · Copyright © 2026 Computer Guardian contributors.</p>
+        <p className="section-description">This software is licensed under GNU GPL version 3 only and comes with no warranty. The complete terms are in the LICENSE file distributed with the source code.</p>
       </section>
     </div>
   );
