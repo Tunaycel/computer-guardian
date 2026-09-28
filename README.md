@@ -101,7 +101,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). Changes should explain the problem, the
 
 ## Security
 
-Read [SECURITY.md](SECURITY.md). Please do not open public issues containing vulnerabilities, private filenames, credentials, or real user data.
+Read [SECURITY.md](SECURITY.md) for private reporting instructions and the [threat model](docs/threat-model.md) for security boundaries, current controls, residual risks, and release requirements. Please do not open public issues containing vulnerabilities, private filenames, credentials, or real user data.
 
 ## License and branding
 
